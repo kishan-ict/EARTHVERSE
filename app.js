@@ -26,11 +26,43 @@ const pinkLight = new THREE.PointLight(0xb126ff, 22, 7, 2); pinkLight.position.s
 const mat = (color, roughness=.55, metalness=.08) => new THREE.MeshStandardMaterial({color,roughness,metalness});
 const box = (name,size,pos,material,cast=true) => {const m=new THREE.Mesh(new THREE.BoxGeometry(...size),material);m.name=name;m.position.set(...pos);m.castShadow=cast;m.receiveShadow=true;scene.add(m);return m};
 
-box('floor',[12,.2,12],[0,-.1,0],mat(0x111622,.75,.25));
-box('backWall',[12,6,.18],[0,3,-5.9],mat(0x111521,.82));
-box('leftWall',[.18,6,12],[-5.9,3,0],mat(0x0b101a,.85));
-box('rightWall',[.18,6,12],[5.9,3,0],mat(0x0b101a,.85));
-const grid = new THREE.GridHelper(12,24,0x1d67be,0x172238); grid.position.y=.015; scene.add(grid);
+function canvasTexture(kind,size=1024){
+ const c=document.createElement('canvas');c.width=c.height=size;const x=c.getContext('2d');
+ if(kind==='wood'){
+   x.fillStyle='#2b211c';x.fillRect(0,0,size,size);const plankH=128;
+   for(let row=0;row<size/plankH;row++){
+     const offset=row%2?160:0;
+     for(let col=-1;col<5;col++){
+       const px=col*260+offset,py=row*plankH;const tone=31+((row*19+col*13)%14);
+       const grad=x.createLinearGradient(px,py,px,py+plankH);grad.addColorStop(0,`rgb(${tone+16},${tone+7},${tone+2})`);grad.addColorStop(.55,`rgb(${tone+5},${tone},${tone-3})`);grad.addColorStop(1,`rgb(${tone+14},${tone+6},${tone})`);x.fillStyle=grad;x.fillRect(px+2,py+2,256,plankH-4);
+       x.strokeStyle='rgba(9,5,3,.62)';x.lineWidth=3;x.strokeRect(px,py,260,plankH);
+       for(let g=0;g<7;g++){x.beginPath();x.strokeStyle=`rgba(130,91,62,${.035+g*.008})`;x.lineWidth=1;x.moveTo(px,py+18+g*14+Math.sin(g+row)*5);for(let q=0;q<=260;q+=20)x.lineTo(px+q,py+18+g*14+Math.sin(q*.035+g+col)*5);x.stroke()}
+     }
+   }
+ }else if(kind==='wall'){
+   x.fillStyle='#353941';x.fillRect(0,0,size,size);const img=x.getImageData(0,0,size,size);for(let i=0;i<img.data.length;i+=4){const n=(Math.random()-.5)*13;img.data[i]+=n;img.data[i+1]+=n;img.data[i+2]+=n;img.data[i+3]=255}x.putImageData(img,0,0);x.fillStyle='rgba(255,255,255,.018)';for(let i=0;i<900;i++)x.fillRect(Math.random()*size,Math.random()*size,Math.random()*3+1,Math.random()*3+1);
+ }else{
+   x.fillStyle='#111827';x.fillRect(0,0,size,size);for(let i=0;i<size;i+=16){x.strokeStyle=i%32?'rgba(85,111,147,.09)':'rgba(25,117,240,.12)';x.beginPath();x.moveTo(i,0);x.lineTo(i,size);x.stroke();x.beginPath();x.moveTo(0,i);x.lineTo(size,i);x.stroke()}
+ }
+ const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.capabilities.getMaxAnisotropy();return t;
+}
+
+const woodTexture=canvasTexture('wood');woodTexture.repeat.set(2.8,3.2);
+const wallTexture=canvasTexture('wall',512);wallTexture.repeat.set(3,2);
+const rugTexture=canvasTexture('rug',512);rugTexture.repeat.set(2,2);
+const floorMaterial=new THREE.MeshPhysicalMaterial({map:woodTexture,color:0xb59078,roughness:.38,metalness:.02,clearcoat:.35,clearcoatRoughness:.45});
+const wallMaterial=new THREE.MeshStandardMaterial({map:wallTexture,color:0x8d95a3,roughness:.94,metalness:0});
+
+box('floor',[12,.2,12],[0,-.1,0],floorMaterial);
+box('backWall',[12,6,.18],[0,3,-5.9],wallMaterial);
+box('leftWall',[.18,6,12],[-5.9,3,0],wallMaterial);
+box('rightWall',[.18,6,12],[5.9,3,0],wallMaterial);
+box('ceiling',[12,.16,12],[0,6,0],mat(0x6f747c,.95,0),false);
+const trimMat=mat(0x15191f,.62,.03);
+box('backSkirting',[12,.22,.12],[0,.11,-5.77],trimMat);
+box('leftSkirting',[.12,.22,11.55],[-5.77,.11,0],trimMat);
+box('rightSkirting',[.12,.22,11.55],[5.77,.11,0],trimMat);
+const rug=box('gamingRug',[4.5,.035,3.5],[1.9,.035,-1.5],new THREE.MeshStandardMaterial({map:rugTexture,color:0x8ba9d1,roughness:.98,metalness:0}),false);
 
 // Bed and lounge corner
 box('bedBase',[3.3,.55,2.1],[-3.8,.35,-4.25],mat(0x141824));
