@@ -225,11 +225,16 @@ function addCar(x,z,color,moving=false,direction=-1){
  const windshield=carPart(new THREE.PlaneGeometry(1.35,.55),glass,[0,1.08,-.825]);windshield.rotation.x=-.16;
  const rearGlass=carPart(new THREE.PlaneGeometry(1.35,.5),glass,[0,1.08,.925]);rearGlass.rotation.x=.16;rearGlass.rotation.y=Math.PI;
  for(const sx of [-1,1]){const sideWindow=carPart(new THREE.PlaneGeometry(1.4,.48),glass,[sx*.756,1.08,.02]);sideWindow.rotation.y=sx>0?Math.PI/2:-Math.PI/2;carPart(new THREE.BoxGeometry(.18,.12,.3),paint,[sx*1.0,1.05,-.54]);}
+ const interior=new THREE.Group();car.add(interior);const interiorPart=(geo,material,pos,rot=[0,0,0])=>{const m=new THREE.Mesh(geo,material);m.position.set(...pos);m.rotation.set(...rot);interior.add(m);return m};
+ interiorPart(new THREE.BoxGeometry(1.36,.2,.42),worldMat(0x1d2228,.72),[0,.92,-.57]);interiorPart(new THREE.BoxGeometry(.5,.58,.46),worldMat(0x25282c,.84),[-.38,.72,.28]);interiorPart(new THREE.BoxGeometry(.5,.58,.46),worldMat(0x25282c,.84),[.38,.72,.28]);
+ const steering=interiorPart(new THREE.TorusGeometry(.2,.028,10,24),worldMat(0x17191c,.42,.5),[.38,1.02,-.5],[Math.PI/2,0,0]);interiorPart(new THREE.CylinderGeometry(.03,.03,.22,10),worldMat(0x24272c,.45,.5),[.38,.92,-.5],[0,0,0]);
+ const driver=new THREE.Group();driver.visible=moving;driver.position.set(.38,.77,-.02);car.add(driver);const driverBody=new THREE.Mesh(new THREE.CapsuleGeometry(.18,.38,4,8),worldMat(0x3a5574,.75));driverBody.position.y=.28;driver.add(driverBody);const driverHead=new THREE.Mesh(new THREE.SphereGeometry(.16,14,10),worldMat(0xb77955,.8));driverHead.position.y=.72;driver.add(driverHead);
+ const doorPivot=new THREE.Group();doorPivot.position.set(.82,.65,-.52);car.add(doorPivot);const driverDoor=new THREE.Mesh(new THREE.BoxGeometry(.06,.62,.95),paint);driverDoor.position.set(0,0,.47);doorPivot.add(driverDoor);
  for(const sx of [-1,1])for(const sz of [-1,1]){const wheel=carPart(new THREE.CylinderGeometry(.34,.34,.22,24),rubber,[sx*.91,.36,sz*1.18]);wheel.rotation.z=Math.PI/2;const rim=carPart(new THREE.CylinderGeometry(.18,.18,.235,12),chrome,[sx*.91,.36,sz*1.18]);rim.rotation.z=Math.PI/2}
  carPart(new THREE.BoxGeometry(1.62,.14,.12),worldMat(0x15191c,.45,.4),[0,.42,-1.91]);carPart(new THREE.BoxGeometry(1.62,.14,.12),worldMat(0x15191c,.45,.4),[0,.42,1.91]);
  for(const sx of [-1,1]){carPart(new THREE.BoxGeometry(.5,.16,.035),new THREE.MeshBasicMaterial({color:0xfff2c2}),[sx*.53,.61,-1.94]);carPart(new THREE.BoxGeometry(.46,.17,.035),new THREE.MeshBasicMaterial({color:0xd52222}),[sx*.53,.61,1.94]);}
  const grille=carPart(new THREE.BoxGeometry(.75,.22,.035),worldMat(0x1b1d20,.32,.68),[0,.42,-1.95]);
- car.userData={moving,direction,speed:3+Math.random()*2,isVehicle:true,driveSpeed:0};car.rotation.y=direction>0?Math.PI:0;vehicles.push(car);if(moving)movingCars.push(car);return car;
+ car.userData={moving,direction,speed:3+Math.random()*2,isVehicle:true,driveSpeed:0,cabin,interior,driver,doorPivot};car.rotation.y=direction>0?Math.PI:0;vehicles.push(car);if(moving)movingCars.push(car);return car;
 }
 addCar(-4,9,0x9b1c20);addCar(4,-8,0xe1e4e8);addCar(-4,-28,0x244b7a);
 addCar(-2.1,20,0x324f82,true,-1);addCar(2.1,-62,0xd1a02d,true,1);addCar(-2.1,-8,0xeeeeee,true,-1);addCar(2.1,-38,0x317052,true,1);
@@ -316,11 +321,14 @@ function interact(target){
  if(target==='wardrobe'){ const profile=JSON.parse(localStorage.getItem('earthverse_profile')||'null'); if(profile) show('#customizer'); else toast('Create an Official Gamer identity first.'); }
 }
 function enterVehicle(car){
- if(car.userData.moving)return toast('Wait for the vehicle to stop.');currentVehicle=car;car.userData.driveSpeed=0;player.position.copy(car.position);yaw=car.rotation.y;pitch=0;
- weapon.visible=false;$('#combatHud').classList.add('hidden');$('#vehicleHud').classList.remove('hidden');toast('Vehicle started. Use WASD to drive and E to exit.');
+ const wasMoving=car.userData.moving;car.userData.moving=false;car.userData.driveSpeed=wasMoving?car.userData.direction*car.userData.speed:0;
+ if(wasMoving&&car.userData.driver){car.userData.driver.visible=false;const side=new THREE.Vector3(2.3,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);const ejected=createNPC('civilian',car.position.x+side.x,car.position.z+side.z,0x3a5574);ejected.userData.state='flee';ejected.rotation.z=.7;}
+ currentVehicle=car;player.position.copy(car.position);yaw=car.rotation.y;pitch=0;car.userData.cabin.visible=false;car.userData.doorPivot.rotation.y=-1.15;
+ const transition=$('#vehicleTransition');transition.classList.remove('active');void transition.offsetWidth;transition.classList.add('active');setTimeout(()=>{car.userData.doorPivot.rotation.y=0;transition.classList.remove('active')},1050);
+ weapon.visible=false;$('#combatHud').classList.add('hidden');$('#vehicleHud').classList.remove('hidden');toast(wasMoving?'Driver removed — vehicle acquired.':'Vehicle started. Use WASD to drive and E to exit.');
 }
 function exitVehicle(){
- if(!currentVehicle)return;const side=new THREE.Vector3(2.2,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),currentVehicle.rotation.y);player.position.copy(currentVehicle.position).add(side);currentVehicle.userData.driveSpeed=0;currentVehicle=null;
+ if(!currentVehicle)return;const side=new THREE.Vector3(2.2,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),currentVehicle.rotation.y);player.position.copy(currentVehicle.position).add(side);currentVehicle.userData.driveSpeed=0;currentVehicle.userData.cabin.visible=true;currentVehicle.userData.doorPivot.rotation.y=0;currentVehicle=null;
  weapon.visible=true;$('#combatHud').classList.remove('hidden');$('#vehicleHud').classList.add('hidden');$('#speedValue').textContent='0';toast('Exited vehicle.');
 }
 function toast(message){const t=$('#toast');t.textContent=message;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),2800)}
@@ -366,7 +374,7 @@ function activateWorld(name){
  toast(`Welcome to Arrival District, ${name}. Explore with WASD.`);
 }
 function returnToRoom(){
- clearTimeout(transitionTimer);if(currentVehicle){currentVehicle.userData.driveSpeed=0;currentVehicle=null}worldMode=false;worldGroup.visible=false;roomObjects.forEach(o=>o.visible=true);player.visible=false;player.position.set(0,0,3.2);player.rotation.y=Math.PI;yaw=0;pitch=0;
+ clearTimeout(transitionTimer);if(currentVehicle){currentVehicle.userData.driveSpeed=0;currentVehicle.userData.cabin.visible=true;currentVehicle.userData.doorPivot.rotation.y=0;currentVehicle=null}worldMode=false;worldGroup.visible=false;roomObjects.forEach(o=>o.visible=true);player.visible=false;player.position.set(0,0,3.2);player.rotation.y=Math.PI;yaw=0;pitch=0;
  scene.background=new THREE.Color(0x050811);scene.fog=new THREE.FogExp2(0x060914,.035);renderer.toneMappingExposure=1.05;
  ambientLight.color.setHex(0x5577aa);ambientLight.groundColor.setHex(0x08080d);ambientLight.intensity=1.15;
  keyLight.color.setHex(0xb8d7ff);keyLight.intensity=2.2;keyLight.position.set(-3,8,4);blueLight.visible=true;pinkLight.visible=true;
@@ -387,13 +395,13 @@ function updatePlayer(dt){
  if(modalOpen)return;
  const move=new THREE.Vector3((keys.d?1:0)-(keys.a?1:0),0,(keys.s?1:0)-(keys.w?1:0));
  if(move.length()){move.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),yaw);player.position.addScaledVector(move,dt*(worldMode?5.2:2.7));player.position.x=THREE.MathUtils.clamp(player.position.x,worldMode?-98:-5.2,worldMode?98:5.2);player.position.z=THREE.MathUtils.clamp(player.position.z,worldMode?-125:-5.2,worldMode?62:5.2);player.rotation.y=Math.atan2(move.x,move.z);bob(dt,true)}else bob(dt,false);
- if(worldMode){let nearest=null,min=3;for(const car of vehicles){if(car.userData.moving)continue;const d=player.position.distanceTo(car.position);if(d<min){min=d;nearest=car}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=nearest?'Enter Vehicle':'';return}
+ if(worldMode){let nearest=null,min=3.4;for(const car of vehicles){const d=player.position.distanceTo(car.position);if(d<min){min=d;nearest=car}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=nearest?(nearest.userData.moving?'Take Over Moving Vehicle':'Enter Vehicle'):'';return}
  const targets=[['pc',new THREE.Vector3(2.8,0,-4.2),'Use Gaming PC'],['vr',new THREE.Vector3(-2.15,0,1.3),'Use VR Headset'],['wardrobe',new THREE.Vector3(-4.35,0,-1.2),'Open Wardrobe']];
  let nearest=null,min=1.75,label='';for(const [n,p,l] of targets){const d=player.position.distanceTo(p);if(d<min){min=d;nearest=n;label=l}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=label;
 }
 function updateWorldLife(dt){
  if(!worldMode)return;
- movingCars.forEach(c=>{c.position.z+=c.userData.direction*c.userData.speed*dt;if(c.position.z<-82)c.position.z=28;if(c.position.z>28)c.position.z=-82});
+ movingCars.forEach(c=>{if(!c.userData.moving)return;c.position.z+=c.userData.direction*c.userData.speed*dt;if(c.position.z<-82)c.position.z=28;if(c.position.z>28)c.position.z=-82});
  npcs.forEach(n=>{
    const u=n.userData;if(u.state==='down'){n.rotation.z=THREE.MathUtils.lerp(n.rotation.z,Math.PI/2,dt*5);return}
    let dir=new THREE.Vector3();
@@ -410,5 +418,5 @@ let step=0;function bob(dt,moving){
  limbs.arms.forEach((a,i)=>{a.upper.rotation.x=THREE.MathUtils.lerp(a.upper.rotation.x,(i?1:-1)*swing,.18);a.fore.rotation.x=THREE.MathUtils.lerp(a.fore.rotation.x,Math.max(0,(i?-1:1)*swing)*.32,.16)});
  limbs.legs.forEach((l,i)=>{l.thigh.rotation.x=THREE.MathUtils.lerp(l.thigh.rotation.x,(i?-1:1)*swing,.2);l.calf.rotation.x=THREE.MathUtils.lerp(l.calf.rotation.x,Math.max(0,(i?1:-1)*swing)*.28,.18)});
 }
-function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);updateWorldLife(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const desired=currentVehicle?currentVehicle.position.clone().add(new THREE.Vector3(.38,1.18,-.08).applyAxisAngle(new THREE.Vector3(0,1,0),currentVehicle.rotation.y)):player.position.clone().add(new THREE.Vector3(0,2.08,0));camera.position.lerp(desired,1-Math.pow(.00001,dt));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.rotation.z=0;renderer.render(scene,camera)}animate();
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);updateWorldLife(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const desired=currentVehicle?currentVehicle.position.clone().add(new THREE.Vector3(.38,1.18,-.08).applyAxisAngle(new THREE.Vector3(0,1,0),currentVehicle.rotation.y)):player.position.clone().add(new THREE.Vector3(0,2.08,0));if(currentVehicle)camera.position.copy(desired);else camera.position.lerp(desired,1-Math.pow(.00001,dt));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.rotation.z=0;renderer.render(scene,camera)}animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
