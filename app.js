@@ -6,7 +6,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050811);
 scene.fog = new THREE.FogExp2(0x060914, 0.035);
 
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 160);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 280);
 camera.position.set(0, 5.4, 8.5);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
@@ -145,7 +145,7 @@ const worldGroup=new THREE.Group();worldGroup.visible=false;scene.add(worldGroup
 const worldMat=(color,roughness=.6,metalness=.1)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
 const worldBox=(size,pos,material)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(...size),material);m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;worldGroup.add(m);return m};
 // A believable first street: grass, asphalt, sidewalks, buildings, trees and street furniture.
-const grass=new THREE.Mesh(new THREE.PlaneGeometry(120,140),worldMat(0x557a3c,1,0));grass.rotation.x=-Math.PI/2;grass.position.z=-25;grass.receiveShadow=true;worldGroup.add(grass);
+const grass=new THREE.Mesh(new THREE.PlaneGeometry(220,220),worldMat(0x557a3c,1,0));grass.rotation.x=-Math.PI/2;grass.position.z=-30;grass.receiveShadow=true;worldGroup.add(grass);
 const road=worldBox([12,.08,120],[0,.035,-25],worldMat(0x303238,.96,.02));
 worldBox([.16,.025,120],[0,.09,-25],worldMat(0xf0d45c,.75,0));
 for(let z=25;z>-85;z-=8){worldBox([.13,.035,4.2],[-3,.1,z],worldMat(0xf1f1e8,.72,0));worldBox([.13,.035,4.2],[3,.1,z],worldMat(0xf1f1e8,.72,0))}
@@ -153,12 +153,19 @@ for(const side of [-1,1]){
  worldBox([3,.22,120],[side*7.4,.11,-25],worldMat(0xb7b7b2,.94,0));
  worldBox([.3,.34,120],[side*5.95,.17,-25],worldMat(0xd0cfca,.9,0));
 }
-for(const crossZ of [-18,-50]){
- worldBox([70,.085,10],[0,.045,crossZ],worldMat(0x303238,.96,.02));
- worldBox([70,.03,.14],[0,.095,crossZ],worldMat(0xf0d45c,.75,0));
- for(let x=-30;x<=30;x+=7)worldBox([3.5,.035,.13],[x,.1,crossZ-2.5],worldMat(0xf1f1e8,.72,0));
+for(const crossZ of [22,-18,-50,-82]){
+ worldBox([190,.085,10],[0,.045,crossZ],worldMat(0x303238,.96,.02));
+ worldBox([190,.03,.14],[0,.095,crossZ],worldMat(0xf0d45c,.75,0));
+ for(let x=-88;x<=88;x+=7)worldBox([3.5,.035,.13],[x,.1,crossZ-2.5],worldMat(0xf1f1e8,.72,0));
+ for(const edge of [-1,1])worldBox([190,.22,2],[0,.11,crossZ+edge*6],worldMat(0xb7b7b2,.94,0));
 }
 for(let z=19;z>-76;z-=6){worldBox([.42,.32,1.8],[0,.2,z],worldMat(0xd6c85c,.8,0));}
+for(const roadX of [-36,36]){
+ worldBox([10,.085,160],[roadX,.045,-30],worldMat(0x303238,.96,.02));
+ worldBox([.14,.03,160],[roadX,.095,-30],worldMat(0xf0d45c,.75,0));
+ for(let z=45;z>-108;z-=7){worldBox([.13,.035,3.5],[roadX-2.5,.1,z],worldMat(0xf1f1e8,.72,0));worldBox([.13,.035,3.5],[roadX+2.5,.1,z],worldMat(0xf1f1e8,.72,0))}
+ for(const edge of [-1,1])worldBox([2,.22,160],[roadX+edge*6,.11,-30],worldMat(0xb7b7b2,.94,0));
+}
 function addBuilding(side,z,index){
  const width=7+(index%3)*1.4,depth=6+(index%2)*2,height=8+(index*5%13),x=side*(12+(index%2)*2);
  const colors=[0xb1a99e,0xd0c8bc,0x9aa6ae,0xc5b49f,0xa99e94];
@@ -174,6 +181,17 @@ function addBuilding(side,z,index){
  return building;
 }
 for(let i=0;i<14;i++){const z=18-i*8.2;addBuilding(-1,z,i);addBuilding(1,z,i+2)}
+function addOuterBuilding(x,z,index){
+ const width=7+(index%4)*1.4,depth=7+((index+2)%3)*1.5,height=6+(index*7%18);const colors=[0xc1b6a8,0x9ca9b1,0xd0c7b8,0xa8a29a,0xb8c0c2];
+ const b=worldBox([width,height,depth],[x,height/2,z],worldMat(colors[index%colors.length],.84,.015));worldBox([width+.2,.28,depth+.2],[x,height+.14,z],worldMat(0x51575b,.9));
+ for(let floor=0;floor<Math.floor(height/2.5);floor++)for(const ox of [-.25,.25]){
+   const w=new THREE.Mesh(new THREE.PlaneGeometry(1.15,.95),new THREE.MeshPhysicalMaterial({color:floor%2?0x8db5c8:0xa9c7d2,roughness:.25,metalness:.08}));w.position.set(x+ox*width,1.6+floor*2.25,z-depth/2-.012);worldGroup.add(w);
+ }
+ if(index%5===0){const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.8,.65),new THREE.MeshBasicMaterial({map:signTexture(['CITY MART','METRO GYM','CAFÉ NOVA','TECH HUB'][index%4],'OPEN DAILY','#315c82'),side:THREE.DoubleSide}));sign.position.set(x,2.7,z-depth/2-.03);worldGroup.add(sign)}
+ return b;
+}
+const cityLots=[-69,-56,-21,21,56,69];const cityRows=[39,5,-34,-66,-99];let lotIndex=0;
+for(const x of cityLots)for(const z of cityRows){if(Math.abs(x)<28&&z>-85)continue;addOuterBuilding(x,z,lotIndex++)}
 
 function addTree(x,z,scale=1){
  const tree=new THREE.Group();tree.position.set(x,0,z);tree.scale.setScalar(scale);worldGroup.add(tree);
@@ -192,6 +210,7 @@ function addTrafficLight(x,z,rotation=0){
  for(const [y,c] of [[3.78,0xd72828],[3.45,0xe7b72f],[3.12,0x25b85b]]){const light=new THREE.Mesh(new THREE.SphereGeometry(.105,14,10),new THREE.MeshBasicMaterial({color:c}));light.position.set(0,y,-.17);group.add(light)}
 }
 for(const z of [-13,-23,-45,-55]){addTrafficLight(-5.35,z);addTrafficLight(5.35,z)}
+for(const roadX of [-36,36])for(const z of [22,-18,-50,-82]){addTrafficLight(roadX-5.2,z-4.1);addTrafficLight(roadX+5.2,z+4.1,Math.PI)}
 
 // Parked vehicles establish a human scale without adding heavy external assets.
 const movingCars=[];
@@ -300,7 +319,7 @@ function enterWorld(name){
 }
 function activateWorld(name){
  worldMode=true;roomObjects.forEach(o=>o.visible=false);worldGroup.visible=true;player.visible=false;player.position.set(0,0,5);player.rotation.y=Math.PI;yaw=0;pitch=0;
- scene.background=new THREE.Color(0x91b9d5);scene.fog=new THREE.Fog(0xb9cedb,38,115);renderer.toneMappingExposure=1.18;
+ scene.background=new THREE.Color(0x91b9d5);scene.fog=new THREE.Fog(0xb9cedb,85,235);renderer.toneMappingExposure=1.18;
  ambientLight.color.setHex(0xd8ebff);ambientLight.groundColor.setHex(0x65704c);ambientLight.intensity=2.25;
  keyLight.color.setHex(0xffe4bd);keyLight.intensity=4.1;keyLight.position.set(-22,32,16);keyLight.shadow.mapSize.set(2048,2048);
  blueLight.visible=false;pinkLight.visible=false;
@@ -322,7 +341,7 @@ function updatePlayer(dt){
  if(autoMove){const delta=autoMove.target.clone().sub(player.position);if(delta.length()<.12){const done=autoMove.done;autoMove=null;done();}else{delta.normalize();player.position.addScaledVector(delta,dt*2.1);player.rotation.y=Math.atan2(delta.x,delta.z);yaw=Math.atan2(-delta.x,-delta.z);pitch=THREE.MathUtils.lerp(pitch,0,dt*4);bob(dt,true)}return}
  if(modalOpen)return;
  const move=new THREE.Vector3((keys.d?1:0)-(keys.a?1:0),0,(keys.s?1:0)-(keys.w?1:0));
- if(move.length()){move.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),yaw);player.position.addScaledVector(move,dt*(worldMode?4.2:2.7));player.position.x=THREE.MathUtils.clamp(player.position.x,worldMode?-42:-5.2,worldMode?42:5.2);player.position.z=THREE.MathUtils.clamp(player.position.z,worldMode?-42:-5.2,worldMode?42:5.2);player.rotation.y=Math.atan2(move.x,move.z);bob(dt,true)}else bob(dt,false);
+ if(move.length()){move.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),yaw);player.position.addScaledVector(move,dt*(worldMode?5.2:2.7));player.position.x=THREE.MathUtils.clamp(player.position.x,worldMode?-98:-5.2,worldMode?98:5.2);player.position.z=THREE.MathUtils.clamp(player.position.z,worldMode?-125:-5.2,worldMode?62:5.2);player.rotation.y=Math.atan2(move.x,move.z);bob(dt,true)}else bob(dt,false);
  if(worldMode){currentTarget=null;$('#interaction').classList.add('hidden');return}
  const targets=[['pc',new THREE.Vector3(2.8,0,-4.2),'Use Gaming PC'],['vr',new THREE.Vector3(-2.15,0,1.3),'Use VR Headset'],['wardrobe',new THREE.Vector3(-4.35,0,-1.2),'Open Wardrobe']];
  let nearest=null,min=1.75,label='';for(const [n,p,l] of targets){const d=player.position.distanceTo(p);if(d<min){min=d;nearest=n;label=l}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=label;
