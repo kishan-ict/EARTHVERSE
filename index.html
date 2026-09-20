@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#05070d" />
+  <title>EARTHVERSE — Beyond Reality</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="game"></div>
+  <div class="scanlines"></div>
+
+  <header class="hud">
+    <div class="brand"><span class="brand-mark">E</span><div><strong>EARTHVERSE</strong><small>BEYOND REALITY</small></div></div>
+    <div class="location"><span></span> GAMING ROOM · LOCAL REALITY</div>
+  </header>
+
+  <aside class="controls glass">
+    <strong>CONTROLS</strong>
+    <div><kbd>W A S D</kbd><span>Move</span></div>
+    <div><kbd>MOUSE</kbd><span>Look</span></div>
+    <div><kbd>E</kbd><span>Interact</span></div>
+  </aside>
+
+  <div id="interaction" class="interaction hidden"><kbd>E</kbd><span id="interactionText">Interact</span></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <section id="welcome" class="modal-shell active">
+    <div class="modal glass hero-modal">
+      <p class="eyebrow">SYSTEM ONLINE · PROTOTYPE 01</p>
+      <h1>WELCOME TO<br><em>EARTHVERSE</em></h1>
+      <p class="lead">Your second life is waiting. How would you like to enter?</p>
+      <div class="choice-grid">
+        <button class="choice primary" data-action="guest"><span class="icon">◈</span><span><b>PLAY AS GUEST</b><small>Enter instantly with temporary progress</small></span><i>→</i></button>
+        <button class="choice" data-action="official"><span class="icon">⌁</span><span><b>BECOME AN OFFICIAL GAMER</b><small>Create an identity and save your journey</small></span><i>→</i></button>
+      </div>
+      <button class="text-button" data-action="explore">Explore the room first</button>
+    </div>
+  </section>
+
+  <section id="guestConfirm" class="modal-shell">
+    <div class="modal glass compact">
+      <p class="eyebrow">GUEST ACCESS</p><h2>ENTER EARTHVERSE?</h2>
+      <p>Guest progress is temporary. Create an official identity later to save property, reputation and achievements.</p>
+      <div class="actions"><button class="secondary" data-action="cancel">CANCEL</button><button class="primary-button" data-action="enterGuest">PLAY</button></div>
+    </div>
+  </section>
+
+  <section id="auth" class="modal-shell">
+    <div class="modal glass auth-modal">
+      <button class="close" data-action="cancel">×</button>
+      <p class="eyebrow">EARTHVERSE IDENTITY NETWORK</p><h2 id="authTitle">OFFICIAL GAMER ACCESS</h2>
+      <div class="tabs"><button class="active" data-tab="login">LOGIN</button><button data-tab="register">THIS IS MY FIRST TIME</button></div>
+      <form id="loginForm" class="form active"><label>EMAIL OR PHONE<input required placeholder="Enter your email or phone"></label><label>PASSWORD<input required type="password" placeholder="Enter your password"></label><button class="primary-button" type="submit">LOGIN TO EARTHVERSE</button><button class="link" type="button">Forgot password?</button></form>
+      <form id="registerForm" class="form"><div class="row"><label>PLAYER NAME<input id="playerName" required maxlength="20" placeholder="Your Earthverse name"></label><label>PHONE NUMBER<input required type="tel" placeholder="+91 00000 00000"></label></div><label>EMAIL ADDRESS<input required type="email" placeholder="you@example.com"></label><div class="row"><label>PASSWORD<input id="password" required minlength="8" type="password" placeholder="Minimum 8 characters"></label><label>CONFIRM PASSWORD<input id="confirmPassword" required minlength="8" type="password" placeholder="Repeat password"></label></div><label class="check"><input required type="checkbox"> I accept the Terms and Privacy Policy</label><button class="primary-button" type="submit">CREATE ACCOUNT</button></form>
+    </div>
+  </section>
+
+  <section id="processing" class="modal-shell processing"><div class="loader-ring"><span id="percent">0%</span></div><h2>CREATING YOUR IDENTITY</h2><p id="tip">Synchronizing your Earthverse profile…</p><div class="progress"><i></i></div></section>
+
+  <section id="customizer" class="modal-shell">
+    <div class="modal glass customizer-modal">
+      <p class="eyebrow">IDENTITY CREATED</p><h2>DEFINE YOUR HUMAN FORM</h2><p>Choose your body and first outfit. Main body selection can be changed once every 7 real-world days.</p>
+      <div class="body-options"><button class="body-card active" data-body="male"><span>♂</span><b>MALE BODY</b></button><button class="body-card" data-body="female"><span>♀</span><b>FEMALE BODY</b></button></div>
+      <div class="palette"><b>OUTFIT COLOR</b><button style="--c:#1c75ff" data-color="0x1c75ff" class="active"></button><button style="--c:#e83e8c" data-color="0xe83e8c"></button><button style="--c:#f4f6f8" data-color="0xf4f6f8"></button><button style="--c:#151821" data-color="0x151821"></button></div>
+      <p class="warning">⚠ Confirming starts the 7-day real-world body-change timer.</p>
+      <button class="primary-button" data-action="saveIdentity">SAVE IDENTITY & ENTER</button>
+    </div>
+  </section>
+
+  <section id="transition" class="transition"><div class="portal-logo">E</div><h1>EARTHVERSE</h1><p>ENTERING THE WORLD BEYOND REALITY</p><div class="loading-dots"><i></i><i></i><i></i></div><button class="secondary" data-action="returnRoom">RETURN TO ROOM</button></section>
+
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js"}}</script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
