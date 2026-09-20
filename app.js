@@ -216,9 +216,19 @@ for(const roadX of [-36,36])for(const z of [22,-18,-50,-82]){addTrafficLight(roa
 const movingCars=[],vehicles=[];
 function addCar(x,z,color,moving=false,direction=-1){
  const car=new THREE.Group();car.position.set(x,.18,z);worldGroup.add(car);
- const body=new THREE.Mesh(new THREE.BoxGeometry(1.75,.52,3.7),new THREE.MeshPhysicalMaterial({color,roughness:.28,metalness:.55,clearcoat:.75}));body.position.y=.45;body.castShadow=true;car.add(body);
- const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.48,.62,1.9),new THREE.MeshPhysicalMaterial({color:0x94afbe,roughness:.15,metalness:.15,transparent:true,opacity:.86}));cabin.position.set(0,.98,-.15);car.add(cabin);
- for(const sx of [-1,1])for(const sz of [-1,1]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.18,18),worldMat(0x151515,.9));wheel.rotation.z=Math.PI/2;wheel.position.set(sx*.9,.34,sz*1.15);car.add(wheel)}
+ const paint=new THREE.MeshPhysicalMaterial({color,roughness:.22,metalness:.62,clearcoat:1,clearcoatRoughness:.13});const glass=new THREE.MeshPhysicalMaterial({color:0x6592aa,roughness:.08,metalness:.08,transparent:true,opacity:.72});const rubber=worldMat(0x111214,.92);const chrome=worldMat(0xb9c2c8,.2,.88);
+ const carPart=(geo,material,pos,scale=[1,1,1])=>{const m=new THREE.Mesh(geo,material);m.position.set(...pos);m.scale.set(...scale);m.castShadow=true;car.add(m);return m};
+ carPart(new THREE.BoxGeometry(1.82,.42,3.75),paint,[0,.46,0]);
+ carPart(new THREE.BoxGeometry(1.72,.24,1.15),paint,[0,.72,-1.18]);
+ carPart(new THREE.BoxGeometry(1.7,.2,.72),paint,[0,.7,1.47]);
+ const cabin=carPart(new THREE.BoxGeometry(1.5,.72,1.72),paint,[0,1.02,.05],[1,.95,1]);
+ const windshield=carPart(new THREE.PlaneGeometry(1.35,.55),glass,[0,1.08,-.825]);windshield.rotation.x=-.16;
+ const rearGlass=carPart(new THREE.PlaneGeometry(1.35,.5),glass,[0,1.08,.925]);rearGlass.rotation.x=.16;rearGlass.rotation.y=Math.PI;
+ for(const sx of [-1,1]){const sideWindow=carPart(new THREE.PlaneGeometry(1.4,.48),glass,[sx*.756,1.08,.02]);sideWindow.rotation.y=sx>0?Math.PI/2:-Math.PI/2;carPart(new THREE.BoxGeometry(.18,.12,.3),paint,[sx*1.0,1.05,-.54]);}
+ for(const sx of [-1,1])for(const sz of [-1,1]){const wheel=carPart(new THREE.CylinderGeometry(.34,.34,.22,24),rubber,[sx*.91,.36,sz*1.18]);wheel.rotation.z=Math.PI/2;const rim=carPart(new THREE.CylinderGeometry(.18,.18,.235,12),chrome,[sx*.91,.36,sz*1.18]);rim.rotation.z=Math.PI/2}
+ carPart(new THREE.BoxGeometry(1.62,.14,.12),worldMat(0x15191c,.45,.4),[0,.42,-1.91]);carPart(new THREE.BoxGeometry(1.62,.14,.12),worldMat(0x15191c,.45,.4),[0,.42,1.91]);
+ for(const sx of [-1,1]){carPart(new THREE.BoxGeometry(.5,.16,.035),new THREE.MeshBasicMaterial({color:0xfff2c2}),[sx*.53,.61,-1.94]);carPart(new THREE.BoxGeometry(.46,.17,.035),new THREE.MeshBasicMaterial({color:0xd52222}),[sx*.53,.61,1.94]);}
+ const grille=carPart(new THREE.BoxGeometry(.75,.22,.035),worldMat(0x1b1d20,.32,.68),[0,.42,-1.95]);
  car.userData={moving,direction,speed:3+Math.random()*2,isVehicle:true,driveSpeed:0};car.rotation.y=direction>0?Math.PI:0;vehicles.push(car);if(moving)movingCars.push(car);return car;
 }
 addCar(-4,9,0x9b1c20);addCar(4,-8,0xe1e4e8);addCar(-4,-28,0x244b7a);
@@ -260,10 +270,19 @@ player.visible=false;
 const keys={};
 scene.add(camera);
 const weapon=new THREE.Group();weapon.visible=false;camera.add(weapon);weapon.position.set(.42,-.4,-.72);weapon.rotation.set(-.08,-.05,0);
-const gunBody=new THREE.Mesh(new THREE.BoxGeometry(.18,.22,.7),worldMat(0x232a33,.3,.7));weapon.add(gunBody);const gunBarrel=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.48,12),worldMat(0x11151b,.22,.8));gunBarrel.rotation.x=Math.PI/2;gunBarrel.position.set(0,.03,-.5);weapon.add(gunBarrel);
+const weaponModels=[];let selectedWeapon=2;
+const weaponPart=(group,geo,material,pos,rot=[0,0,0])=>{const m=new THREE.Mesh(geo,material);m.position.set(...pos);m.rotation.set(...rot);group.add(m);return m};
+for(let i=0;i<7;i++){const g=new THREE.Group();g.visible=i===2;weapon.add(g);weaponModels.push(g)}
+weaponPart(weaponModels[0],new THREE.CapsuleGeometry(.065,.28,5,9),worldMat(0xb97858,.72),[-.12,-.03,-.1],[Math.PI/2,0,-.12]);weaponPart(weaponModels[0],new THREE.CapsuleGeometry(.065,.28,5,9),worldMat(0xb97858,.72),[.12,-.03,-.1],[Math.PI/2,0,.12]);
+weaponPart(weaponModels[1],new THREE.BoxGeometry(.18,.28,.42),worldMat(0x23272d,.28,.75),[0,0,-.05]);weaponPart(weaponModels[1],new THREE.BoxGeometry(.13,.34,.17),worldMat(0x15181d,.48,.45),[0,-.24,.08],[.22,0,0]);
+weaponPart(weaponModels[2],new THREE.BoxGeometry(.18,.22,.7),worldMat(0x232a33,.3,.7),[0,0,0]);const rifleBarrel=weaponPart(weaponModels[2],new THREE.CylinderGeometry(.045,.055,.48,12),worldMat(0x11151b,.22,.8),[0,.03,-.5],[Math.PI/2,0,0]);weaponPart(weaponModels[2],new THREE.BoxGeometry(.13,.32,.32),worldMat(0x171b20,.4,.55),[0,-.23,.06],[.25,0,0]);
+weaponPart(weaponModels[3],new THREE.CylinderGeometry(.13,.16,1.2,16),worldMat(0x435243,.45,.5),[0,0,-.15],[Math.PI/2,0,0]);weaponPart(weaponModels[3],new THREE.ConeGeometry(.15,.32,16),worldMat(0x5b6757,.48,.45),[0,0,-.9],[-Math.PI/2,0,0]);
+weaponPart(weaponModels[4],new THREE.BoxGeometry(.045,.07,1.35),new THREE.MeshPhysicalMaterial({color:0xd9e7ee,roughness:.14,metalness:.9}),[0,0,-.35],[0,0,-.2]);weaponPart(weaponModels[4],new THREE.CylinderGeometry(.045,.055,.48,12),worldMat(0x281812,.6),[0,-.03,.42],[Math.PI/2,0,0]);
+weaponPart(weaponModels[5],new THREE.CylinderGeometry(.07,.12,1.25,16),worldMat(0x9a6537,.65),[0,0,-.25],[Math.PI/2,0,.2]);
+weaponPart(weaponModels[6],new THREE.SphereGeometry(.16,18,14),worldMat(0x34413a,.55,.35),[0,0,-.2]);weaponPart(weaponModels[6],new THREE.BoxGeometry(.08,.11,.08),worldMat(0xd23a2e,.5),[0,.16,-.2]);
 const muzzle=new THREE.PointLight(0xffb13b,0,3,2);muzzle.position.set(0,.03,-.78);weapon.add(muzzle);
 const raycaster=new THREE.Raycaster();let lastShot=0;
-addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e'&&!modalOpen&&currentTarget) interact(currentTarget);if(e.key.toLowerCase()==='q'&&worldMode&&!modalOpen&&!currentVehicle)forceWave()});
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(/^[0-6]$/.test(e.key)&&worldMode&&!currentVehicle)selectWeapon(Number(e.key));if(e.key.toLowerCase()==='e'&&!modalOpen&&currentTarget) interact(currentTarget);if(e.key.toLowerCase()==='q'&&worldMode&&!modalOpen&&!currentVehicle)forceWave()});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 addEventListener('mousemove',e=>{if(!modalOpen&&document.pointerLockElement===renderer.domElement){yaw-=e.movementX*.0025;pitch-=e.movementY*.0022;pitch=THREE.MathUtils.clamp(pitch,-1.25,1.25)}});
 renderer.domElement.addEventListener('click',()=>{if(!modalOpen) renderer.domElement.requestPointerLock?.()});
@@ -272,8 +291,18 @@ addEventListener('mousedown',e=>{if(e.button===0&&worldMode&&!modalOpen&&!curren
 function gunSound(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),gain=a.createGain();o.type='square';o.frequency.setValueAtTime(125,a.currentTime);o.frequency.exponentialRampToValueAtTime(45,a.currentTime+.09);gain.gain.setValueAtTime(.12,a.currentTime);gain.gain.exponentialRampToValueAtTime(.001,a.currentTime+.12);o.connect(gain).connect(a.destination);o.start();o.stop(a.currentTime+.12)}catch{}}
 function bloodEffect(position){for(let i=0;i<10;i++){const drop=new THREE.Mesh(new THREE.SphereGeometry(.025+Math.random()*.025,6,5),new THREE.MeshBasicMaterial({color:0xa70d12}));drop.position.copy(position);drop.userData.velocity=new THREE.Vector3((Math.random()-.5)*2,Math.random()*1.7,(Math.random()-.5)*2);drop.userData.life=1;worldGroup.add(drop);effects.push(drop)}}
 const effects=[];
+function selectWeapon(index){selectedWeapon=index;weaponModels.forEach((m,i)=>m.visible=i===index);$$('[data-slot]').forEach(s=>s.classList.toggle('active',Number(s.dataset.slot)===index));toast(['Bare Hands','Handgun','Rifle','RPG','Katana','Baseball Bat','Sticky Bomb'][index]+' equipped');}
 function alertNPCs(origin){npcs.forEach(n=>{if(n.userData.state==='down')return;const d=n.position.distanceTo(origin);if(d<25){if(n.userData.role==='police')n.userData.state='respond';else n.userData.state=Math.random()<.3?'down':'flee'}})}
-function shoot(){const now=performance.now();if(now-lastShot<240)return;lastShot=now;gunSound();muzzle.intensity=12;setTimeout(()=>muzzle.intensity=0,45);weapon.position.z=-.65;setTimeout(()=>weapon.position.z=-.72,70);alertNPCs(player.position);raycaster.setFromCamera(new THREE.Vector2(0,0),camera);const hits=raycaster.intersectObjects(npcs,true);if(hits.length){let target=hits[0].object;while(target.parent&&!npcs.includes(target))target=target.parent;if(npcs.includes(target)){target.userData.health-=55;target.userData.state=target.userData.health<=0?'down':'flee';bloodEffect(hits[0].point)}}}
+function resolveNPC(object){let target=object;while(target.parent&&!npcs.includes(target))target=target.parent;return npcs.includes(target)?target:null}
+function damageNPC(target,damage,point){if(!target)return;target.userData.health-=damage;target.userData.state=target.userData.health<=0?'down':'flee';bloodEffect(point||target.position.clone().add(new THREE.Vector3(0,1.2,0)))}
+function explosion(point){const flash=new THREE.Mesh(new THREE.SphereGeometry(.6,16,12),new THREE.MeshBasicMaterial({color:0xff7b25,transparent:true,opacity:.8}));flash.position.copy(point);flash.userData.life=.65;flash.userData.explosion=true;worldGroup.add(flash);effects.push(flash);npcs.forEach(n=>{const d=n.position.distanceTo(point);if(d<8)damageNPC(n,Math.max(25,120-d*12),n.position.clone().add(new THREE.Vector3(0,1,0)))});alertNPCs(point)}
+function shoot(){
+ const now=performance.now(),delay=[420,380,145,900,430,520,850][selectedWeapon];if(now-lastShot<delay)return;lastShot=now;raycaster.setFromCamera(new THREE.Vector2(0,0),camera);const hits=raycaster.intersectObjects(npcs,true);const hit=hits[0],target=hit?resolveNPC(hit.object):null;
+ if(selectedWeapon===0||selectedWeapon===4||selectedWeapon===5){weapon.rotation.x=.55;setTimeout(()=>weapon.rotation.x=-.08,150);if(target&&hit.distance<2.6)damageNPC(target,selectedWeapon===4?75:selectedWeapon===5?50:25,hit.point);return}
+ if(selectedWeapon===6){const point=camera.position.clone().add(raycaster.ray.direction.clone().multiplyScalar(9));const bomb=new THREE.Mesh(new THREE.SphereGeometry(.14,12,10),worldMat(0x34413a,.6));bomb.position.copy(camera.position);bomb.userData.velocity=raycaster.ray.direction.clone().multiplyScalar(10);bomb.userData.life=1.5;bomb.userData.bomb=true;worldGroup.add(bomb);effects.push(bomb);return}
+ gunSound();muzzle.intensity=12;setTimeout(()=>muzzle.intensity=0,45);weapon.position.z=-.65;setTimeout(()=>weapon.position.z=-.72,70);alertNPCs(player.position);
+ if(selectedWeapon===3){const point=hit?hit.point:camera.position.clone().add(raycaster.ray.direction.clone().multiplyScalar(35));explosion(point);return}if(target)damageNPC(target,selectedWeapon===1?45:38,hit.point);
+}
 function forceWave(){const ring=new THREE.Mesh(new THREE.RingGeometry(.5,.7,48),new THREE.MeshBasicMaterial({color:0x52c7ff,transparent:true,opacity:.75,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.copy(player.position);ring.position.y=.12;ring.userData.life=1;worldGroup.add(ring);effects.push(ring);npcs.forEach(n=>{if(n.position.distanceTo(player.position)<10&&n.userData.state!=='down'){n.userData.state='flee';const away=n.position.clone().sub(player.position).normalize();n.position.addScaledVector(away,2.5)}});toast('Force Wave activated');}
 
 const show=(id)=>{modalOpen=true;document.exitPointerLock?.();$$('.modal-shell').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')};
@@ -373,7 +402,7 @@ function updateWorldLife(dt){
    else if(u.state==='idle'&&u.role==='civilian'){dir.set(0,0,Math.sin(performance.now()*.00035+u.phase)>0?1:-1)}
    if(dir.lengthSq()){n.position.addScaledVector(dir,dt*(u.state==='flee'?3.5:u.state==='respond'?2.8:.55));n.rotation.y=Math.atan2(dir.x,dir.z)}
  });
- for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.userData.life-=dt;if(e.geometry.type==='RingGeometry'){e.scale.addScalar(dt*8);e.material.opacity=e.userData.life*.7}else{e.userData.velocity.y-=4.5*dt;e.position.addScaledVector(e.userData.velocity,dt)}if(e.userData.life<=0){worldGroup.remove(e);e.geometry.dispose();e.material.dispose();effects.splice(i,1)}}
+ for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.userData.life-=dt;if(e.geometry.type==='RingGeometry'){e.scale.addScalar(dt*8);e.material.opacity=e.userData.life*.7}else if(e.userData.explosion){e.scale.addScalar(dt*7);e.material.opacity=Math.max(0,e.userData.life)}else if(e.userData.bomb){e.userData.velocity.y-=5.5*dt;e.position.addScaledVector(e.userData.velocity,dt);if(e.position.y<.16){e.position.y=.16;e.userData.velocity.multiplyScalar(.55);e.userData.velocity.y=Math.abs(e.userData.velocity.y)*.45}}else{e.userData.velocity.y-=4.5*dt;e.position.addScaledVector(e.userData.velocity,dt)}if(e.userData.life<=0){if(e.userData.bomb)explosion(e.position.clone());worldGroup.remove(e);e.geometry.dispose();e.material.dispose();effects.splice(i,1)}}
 }
 let step=0;function bob(dt,moving){
  step+=dt*(moving?9:3);player.position.y=moving?Math.abs(Math.sin(step))*.026:0;
