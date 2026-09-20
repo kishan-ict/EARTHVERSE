@@ -153,6 +153,12 @@ for(const side of [-1,1]){
  worldBox([3,.22,120],[side*7.4,.11,-25],worldMat(0xb7b7b2,.94,0));
  worldBox([.3,.34,120],[side*5.95,.17,-25],worldMat(0xd0cfca,.9,0));
 }
+for(const crossZ of [-18,-50]){
+ worldBox([70,.085,10],[0,.045,crossZ],worldMat(0x303238,.96,.02));
+ worldBox([70,.03,.14],[0,.095,crossZ],worldMat(0xf0d45c,.75,0));
+ for(let x=-30;x<=30;x+=7)worldBox([3.5,.035,.13],[x,.1,crossZ-2.5],worldMat(0xf1f1e8,.72,0));
+}
+for(let z=19;z>-76;z-=6){worldBox([.42,.32,1.8],[0,.2,z],worldMat(0xd6c85c,.8,0));}
 function addBuilding(side,z,index){
  const width=7+(index%3)*1.4,depth=6+(index%2)*2,height=8+(index*5%13),x=side*(12+(index%2)*2);
  const colors=[0xb1a99e,0xd0c8bc,0x9aa6ae,0xc5b49f,0xa99e94];
@@ -179,15 +185,51 @@ function addLamp(x,z){
  const head=new THREE.Mesh(new THREE.BoxGeometry(.6,.12,.22),worldMat(0x24282d,.35,.65));head.position.set(x+(x<0?.25:-.25),3.55,z);worldGroup.add(head);
 }
 for(let z=20;z>-75;z-=10){addTree(-8.2,z,.85);addTree(8.2,z,.85);addLamp(-5.45,z-2);addLamp(5.45,z+3)}
+function addTrafficLight(x,z,rotation=0){
+ const group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=rotation;worldGroup.add(group);
+ const pole=new THREE.Mesh(new THREE.CylinderGeometry(.07,.1,3.8,10),worldMat(0x252a2f,.35,.7));pole.position.y=1.9;group.add(pole);
+ const caseMesh=new THREE.Mesh(new THREE.BoxGeometry(.45,1.2,.32),worldMat(0x171b1e,.5,.45));caseMesh.position.set(0,3.45,0);group.add(caseMesh);
+ for(const [y,c] of [[3.78,0xd72828],[3.45,0xe7b72f],[3.12,0x25b85b]]){const light=new THREE.Mesh(new THREE.SphereGeometry(.105,14,10),new THREE.MeshBasicMaterial({color:c}));light.position.set(0,y,-.17);group.add(light)}
+}
+for(const z of [-13,-23,-45,-55]){addTrafficLight(-5.35,z);addTrafficLight(5.35,z)}
 
 // Parked vehicles establish a human scale without adding heavy external assets.
-function addCar(x,z,color){
+const movingCars=[];
+function addCar(x,z,color,moving=false,direction=-1){
  const car=new THREE.Group();car.position.set(x,.18,z);worldGroup.add(car);
  const body=new THREE.Mesh(new THREE.BoxGeometry(1.75,.52,3.7),new THREE.MeshPhysicalMaterial({color,roughness:.28,metalness:.55,clearcoat:.75}));body.position.y=.45;body.castShadow=true;car.add(body);
  const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.48,.62,1.9),new THREE.MeshPhysicalMaterial({color:0x94afbe,roughness:.15,metalness:.15,transparent:true,opacity:.86}));cabin.position.set(0,.98,-.15);car.add(cabin);
  for(const sx of [-1,1])for(const sz of [-1,1]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.18,18),worldMat(0x151515,.9));wheel.rotation.z=Math.PI/2;wheel.position.set(sx*.9,.34,sz*1.15);car.add(wheel)}
+ car.userData={moving,direction,speed:3+Math.random()*2};if(moving)movingCars.push(car);return car;
 }
 addCar(-4,9,0x9b1c20);addCar(4,-8,0xe1e4e8);addCar(-4,-28,0x244b7a);
+addCar(-2.1,20,0x324f82,true,-1);addCar(2.1,-62,0xd1a02d,true,1);addCar(-2.1,-8,0xeeeeee,true,-1);addCar(2.1,-38,0x317052,true,1);
+
+function signTexture(title,subtitle,color){
+ const c=document.createElement('canvas');c.width=768;c.height=384;const x=c.getContext('2d');x.fillStyle=color;x.fillRect(0,0,c.width,c.height);x.fillStyle='rgba(0,0,0,.2)';x.fillRect(18,18,732,348);x.textAlign='center';x.fillStyle='#fff';x.font='800 64px sans-serif';x.fillText(title,384,170);x.font='600 28px sans-serif';x.fillText(subtitle,384,225);x.strokeStyle='rgba(255,255,255,.55)';x.lineWidth=6;x.strokeRect(30,30,708,324);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+}
+function addPoster(x,y,z,title,subtitle,color,side){
+ const p=new THREE.Mesh(new THREE.PlaneGeometry(3.1,1.55),new THREE.MeshBasicMaterial({map:signTexture(title,subtitle,color),side:THREE.DoubleSide}));p.position.set(x,y,z);p.rotation.y=side<0?-Math.PI/2:Math.PI/2;worldGroup.add(p);
+}
+addPoster(-8.85,3.2,5,'NOVA FRONT','UNITY · WORK · FUTURE','#2358a6',-1);addPoster(8.85,3.2,-4,'CITY OF STARS','A NEW FILM · FRIDAY','#8e2045',1);addPoster(-8.85,3.2,-34,'PEOPLE FIRST','NOVA FRONT RALLY','#d77820',-1);addPoster(8.85,3.2,-61,'BEYOND MARS','IN CINEMAS NOW','#3c236f',1);
+
+const npcs=[];
+function createNPC(role,x,z,color=0x4b7ca8){
+ const g=new THREE.Group();g.position.set(x,0,z);g.userData={role,state:'idle',health:role==='police'?140:100,baseX:x,baseZ:z,phase:Math.random()*6.28};worldGroup.add(g);
+ const skinNpc=worldMat([0x8e5d43,0xb77955,0xd19a72][Math.floor(Math.random()*3)],.8);const uniform=worldMat(color,.65,.04);const pants=worldMat(role==='police'?0x182333:0x252a31,.8);
+ const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.25,.58,5,10),uniform);torso.position.y=1.28;torso.castShadow=true;g.add(torso);
+ const headNpc=new THREE.Mesh(new THREE.SphereGeometry(.22,16,12),skinNpc);headNpc.position.y=1.95;headNpc.castShadow=true;g.add(headNpc);
+ for(const sx of [-1,1]){const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.085,.5,4,8),pants);leg.position.set(sx*.13,.47,0);g.add(leg);const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.07,.48,4,8),skinNpc);arm.position.set(sx*.34,1.24,0);g.add(arm)}
+ if(role==='police'){const cap=new THREE.Mesh(new THREE.CylinderGeometry(.23,.23,.11,16),worldMat(0x172c4d,.5));cap.position.y=2.15;g.add(cap)}
+ if(role==='politician'){const sash=new THREE.Mesh(new THREE.BoxGeometry(.11,.82,.03),worldMat(0xff8a23,.55));sash.position.set(0,1.35,-.24);sash.rotation.z=-.36;g.add(sash)}
+ g.userData.body=torso;npcs.push(g);return g;
+}
+for(let i=0;i<26;i++){const side=i%2?-1:1;createNPC('civilian',side*(6.8+Math.random()*1.2),17-i*3.4,[0x3c7bb5,0xa74646,0x5a8c55,0x8a5f9f][i%4])}
+createNPC('police',-4,-15,0x1d4f8c);createNPC('police',4,-47,0x1d4f8c);createNPC('police',-6,-53,0x1d4f8c);
+const politician=createNPC('politician',8,-31,0xf2eee6);
+for(let i=0;i<12;i++){const supporter=createNPC('supporter',8+(i%4)*1.05,-34-Math.floor(i/4)*1.2,0xe08725);supporter.rotation.y=Math.PI}
+worldBox([5,.55,3],[9,.28,-30],worldMat(0x55575b,.8));
+const rallyBanner=new THREE.Mesh(new THREE.PlaneGeometry(5,1.5),new THREE.MeshBasicMaterial({map:signTexture('NOVA FRONT','PUBLIC RALLY · PEOPLE FIRST','#d66e1e'),side:THREE.DoubleSide}));rallyBanner.position.set(9,2.4,-31.55);worldGroup.add(rallyBanner);
 
 const portal=new THREE.Mesh(new THREE.TorusGeometry(1.65,.11,16,64),new THREE.MeshBasicMaterial({color:0x43c5ff}));portal.position.set(0,1.8,-18);worldGroup.add(portal);
 const core=new THREE.Mesh(new THREE.CircleGeometry(1.55,48),new THREE.MeshBasicMaterial({color:0x55baff,transparent:true,opacity:.25,side:THREE.DoubleSide}));core.position.set(0,1.8,-18.03);worldGroup.add(core);
@@ -197,10 +239,23 @@ const sunDisc=new THREE.Mesh(new THREE.SphereGeometry(3,24,16),new THREE.MeshBas
 let modalOpen=true, currentTarget=null, autoMove=null, yaw=0, pitch=0, bodyType='male', outfit=0x1c75ff, worldMode=false, transitionTimer=null;
 player.visible=false;
 const keys={};
-addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e'&&!modalOpen&&currentTarget) interact(currentTarget)});
+scene.add(camera);
+const weapon=new THREE.Group();weapon.visible=false;camera.add(weapon);weapon.position.set(.42,-.4,-.72);weapon.rotation.set(-.08,-.05,0);
+const gunBody=new THREE.Mesh(new THREE.BoxGeometry(.18,.22,.7),worldMat(0x232a33,.3,.7));weapon.add(gunBody);const gunBarrel=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.48,12),worldMat(0x11151b,.22,.8));gunBarrel.rotation.x=Math.PI/2;gunBarrel.position.set(0,.03,-.5);weapon.add(gunBarrel);
+const muzzle=new THREE.PointLight(0xffb13b,0,3,2);muzzle.position.set(0,.03,-.78);weapon.add(muzzle);
+const raycaster=new THREE.Raycaster();let lastShot=0;
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e'&&!modalOpen&&currentTarget) interact(currentTarget);if(e.key.toLowerCase()==='q'&&worldMode&&!modalOpen)forceWave()});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 addEventListener('mousemove',e=>{if(!modalOpen&&document.pointerLockElement===renderer.domElement){yaw-=e.movementX*.0025;pitch-=e.movementY*.0022;pitch=THREE.MathUtils.clamp(pitch,-1.25,1.25)}});
 renderer.domElement.addEventListener('click',()=>{if(!modalOpen) renderer.domElement.requestPointerLock?.()});
+addEventListener('mousedown',e=>{if(e.button===0&&worldMode&&!modalOpen&&document.pointerLockElement===renderer.domElement)shoot()});
+
+function gunSound(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),gain=a.createGain();o.type='square';o.frequency.setValueAtTime(125,a.currentTime);o.frequency.exponentialRampToValueAtTime(45,a.currentTime+.09);gain.gain.setValueAtTime(.12,a.currentTime);gain.gain.exponentialRampToValueAtTime(.001,a.currentTime+.12);o.connect(gain).connect(a.destination);o.start();o.stop(a.currentTime+.12)}catch{}}
+function bloodEffect(position){for(let i=0;i<10;i++){const drop=new THREE.Mesh(new THREE.SphereGeometry(.025+Math.random()*.025,6,5),new THREE.MeshBasicMaterial({color:0xa70d12}));drop.position.copy(position);drop.userData.velocity=new THREE.Vector3((Math.random()-.5)*2,Math.random()*1.7,(Math.random()-.5)*2);drop.userData.life=1;worldGroup.add(drop);effects.push(drop)}}
+const effects=[];
+function alertNPCs(origin){npcs.forEach(n=>{if(n.userData.state==='down')return;const d=n.position.distanceTo(origin);if(d<25){if(n.userData.role==='police')n.userData.state='respond';else n.userData.state=Math.random()<.3?'down':'flee'}})}
+function shoot(){const now=performance.now();if(now-lastShot<240)return;lastShot=now;gunSound();muzzle.intensity=12;setTimeout(()=>muzzle.intensity=0,45);weapon.position.z=-.65;setTimeout(()=>weapon.position.z=-.72,70);alertNPCs(player.position);raycaster.setFromCamera(new THREE.Vector2(0,0),camera);const hits=raycaster.intersectObjects(npcs,true);if(hits.length){let target=hits[0].object;while(target.parent&&!npcs.includes(target))target=target.parent;if(npcs.includes(target)){target.userData.health-=55;target.userData.state=target.userData.health<=0?'down':'flee';bloodEffect(hits[0].point)}}}
+function forceWave(){const ring=new THREE.Mesh(new THREE.RingGeometry(.5,.7,48),new THREE.MeshBasicMaterial({color:0x52c7ff,transparent:true,opacity:.75,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.copy(player.position);ring.position.y=.12;ring.userData.life=1;worldGroup.add(ring);effects.push(ring);npcs.forEach(n=>{if(n.position.distanceTo(player.position)<10&&n.userData.state!=='down'){n.userData.state='flee';const away=n.position.clone().sub(player.position).normalize();n.position.addScaledVector(away,2.5)}});toast('Force Wave activated');}
 
 const show=(id)=>{modalOpen=true;document.exitPointerLock?.();$$('.modal-shell').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')};
 const closeModals=()=>{$$('.modal-shell').forEach(x=>x.classList.remove('active'));modalOpen=false};
@@ -249,6 +304,7 @@ function activateWorld(name){
  ambientLight.color.setHex(0xd8ebff);ambientLight.groundColor.setHex(0x65704c);ambientLight.intensity=2.25;
  keyLight.color.setHex(0xffe4bd);keyLight.intensity=4.1;keyLight.position.set(-22,32,16);keyLight.shadow.mapSize.set(2048,2048);
  blueLight.visible=false;pinkLight.visible=false;
+ weapon.visible=true;$('#combatHud').classList.remove('hidden');
  $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> EARTHVERSE · ARRIVAL DISTRICT';modalOpen=false;
  toast(`Welcome to Arrival District, ${name}. Explore with WASD.`);
 }
@@ -257,6 +313,7 @@ function returnToRoom(){
  scene.background=new THREE.Color(0x050811);scene.fog=new THREE.FogExp2(0x060914,.035);renderer.toneMappingExposure=1.05;
  ambientLight.color.setHex(0x5577aa);ambientLight.groundColor.setHex(0x08080d);ambientLight.intensity=1.15;
  keyLight.color.setHex(0xb8d7ff);keyLight.intensity=2.2;keyLight.position.set(-3,8,4);blueLight.visible=true;pinkLight.visible=true;
+ weapon.visible=false;$('#combatHud').classList.add('hidden');
  $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> GAMING ROOM · LOCAL REALITY';modalOpen=false;toast('Returned to your gaming room.');
 }
 
@@ -270,11 +327,24 @@ function updatePlayer(dt){
  const targets=[['pc',new THREE.Vector3(2.8,0,-4.2),'Use Gaming PC'],['vr',new THREE.Vector3(-2.15,0,1.3),'Use VR Headset'],['wardrobe',new THREE.Vector3(-4.35,0,-1.2),'Open Wardrobe']];
  let nearest=null,min=1.75,label='';for(const [n,p,l] of targets){const d=player.position.distanceTo(p);if(d<min){min=d;nearest=n;label=l}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=label;
 }
+function updateWorldLife(dt){
+ if(!worldMode)return;
+ movingCars.forEach(c=>{c.position.z+=c.userData.direction*c.userData.speed*dt;if(c.position.z<-82)c.position.z=28;if(c.position.z>28)c.position.z=-82});
+ npcs.forEach(n=>{
+   const u=n.userData;if(u.state==='down'){n.rotation.z=THREE.MathUtils.lerp(n.rotation.z,Math.PI/2,dt*5);return}
+   let dir=new THREE.Vector3();
+   if(u.state==='flee'){dir.copy(n.position).sub(player.position).setY(0).normalize();if(n.position.distanceTo(player.position)>32)u.state='idle'}
+   else if(u.state==='respond'){dir.copy(player.position).sub(n.position).setY(0).normalize();if(n.position.distanceTo(player.position)<4)u.state='guard'}
+   else if(u.state==='idle'&&u.role==='civilian'){dir.set(0,0,Math.sin(performance.now()*.00035+u.phase)>0?1:-1)}
+   if(dir.lengthSq()){n.position.addScaledVector(dir,dt*(u.state==='flee'?3.5:u.state==='respond'?2.8:.55));n.rotation.y=Math.atan2(dir.x,dir.z)}
+ });
+ for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.userData.life-=dt;if(e.geometry.type==='RingGeometry'){e.scale.addScalar(dt*8);e.material.opacity=e.userData.life*.7}else{e.userData.velocity.y-=4.5*dt;e.position.addScaledVector(e.userData.velocity,dt)}if(e.userData.life<=0){worldGroup.remove(e);e.geometry.dispose();e.material.dispose();effects.splice(i,1)}}
+}
 let step=0;function bob(dt,moving){
  step+=dt*(moving?9:3);player.position.y=moving?Math.abs(Math.sin(step))*.026:0;
  const limbs=player.userData.limbs;if(!limbs)return;const swing=moving?Math.sin(step)*.52:0;
  limbs.arms.forEach((a,i)=>{a.upper.rotation.x=THREE.MathUtils.lerp(a.upper.rotation.x,(i?1:-1)*swing,.18);a.fore.rotation.x=THREE.MathUtils.lerp(a.fore.rotation.x,Math.max(0,(i?-1:1)*swing)*.32,.16)});
  limbs.legs.forEach((l,i)=>{l.thigh.rotation.x=THREE.MathUtils.lerp(l.thigh.rotation.x,(i?-1:1)*swing,.2);l.calf.rotation.x=THREE.MathUtils.lerp(l.calf.rotation.x,Math.max(0,(i?1:-1)*swing)*.28,.18)});
 }
-function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const eyeHeight=2.08;const desired=player.position.clone().add(new THREE.Vector3(0,eyeHeight,0));camera.position.lerp(desired,1-Math.pow(.00001,dt));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.rotation.z=0;renderer.render(scene,camera)}animate();
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);updateWorldLife(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const eyeHeight=2.08;const desired=player.position.clone().add(new THREE.Vector3(0,eyeHeight,0));camera.position.lerp(desired,1-Math.pow(.00001,dt));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.rotation.z=0;renderer.render(scene,camera)}animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
