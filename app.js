@@ -6,7 +6,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050811);
 scene.fog = new THREE.FogExp2(0x060914, 0.035);
 
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 160);
 camera.position.set(0, 5.4, 8.5);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
@@ -18,7 +18,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 $('#game').appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x5577aa, 0x08080d, 1.15));
+const ambientLight=new THREE.HemisphereLight(0x5577aa,0x08080d,1.15);scene.add(ambientLight);
 const keyLight = new THREE.DirectionalLight(0xb8d7ff, 2.2); keyLight.position.set(-3, 8, 4); keyLight.castShadow = true; scene.add(keyLight);
 const blueLight = new THREE.PointLight(0x1677ff, 45, 9, 2); blueLight.position.set(3, 2.4, -2.8); scene.add(blueLight);
 const pinkLight = new THREE.PointLight(0xb126ff, 22, 7, 2); pinkLight.position.set(-4, 3, 0); scene.add(pinkLight);
@@ -144,16 +144,55 @@ const roomObjects=scene.children.filter(o=>o!==player&&!o.isLight);
 const worldGroup=new THREE.Group();worldGroup.visible=false;scene.add(worldGroup);
 const worldMat=(color,roughness=.6,metalness=.1)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
 const worldBox=(size,pos,material)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(...size),material);m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;worldGroup.add(m);return m};
-const worldGround=new THREE.Mesh(new THREE.PlaneGeometry(90,90),worldMat(0x101b28,.9));worldGround.rotation.x=-Math.PI/2;worldGround.receiveShadow=true;worldGroup.add(worldGround);
-const worldGrid=new THREE.GridHelper(90,45,0x157de0,0x193047);worldGrid.position.y=.02;worldGroup.add(worldGrid);
-for(let i=0;i<26;i++){
- const side=i%2===0?-1:1;const z=-8-Math.floor(i/2)*6;const height=3+(i*7%10);
- const building=worldBox([5+(i%3),height,4],[side*(7+(i%4)*2),height/2,z],worldMat(i%3===0?0x152d4b:0x182231,.5,.25));
- const strip=new THREE.Mesh(new THREE.BoxGeometry(.08,height*.7,4.02),new THREE.MeshBasicMaterial({color:i%2?0x1677ff:0x55d6ff}));strip.position.set(building.position.x+(side<0?2.54:-2.54),height/2,z);worldGroup.add(strip);
+// A believable first street: grass, asphalt, sidewalks, buildings, trees and street furniture.
+const grass=new THREE.Mesh(new THREE.PlaneGeometry(120,140),worldMat(0x557a3c,1,0));grass.rotation.x=-Math.PI/2;grass.position.z=-25;grass.receiveShadow=true;worldGroup.add(grass);
+const road=worldBox([12,.08,120],[0,.035,-25],worldMat(0x303238,.96,.02));
+worldBox([.16,.025,120],[0,.09,-25],worldMat(0xf0d45c,.75,0));
+for(let z=25;z>-85;z-=8){worldBox([.13,.035,4.2],[-3,.1,z],worldMat(0xf1f1e8,.72,0));worldBox([.13,.035,4.2],[3,.1,z],worldMat(0xf1f1e8,.72,0))}
+for(const side of [-1,1]){
+ worldBox([3,.22,120],[side*7.4,.11,-25],worldMat(0xb7b7b2,.94,0));
+ worldBox([.3,.34,120],[side*5.95,.17,-25],worldMat(0xd0cfca,.9,0));
 }
-const portal=new THREE.Mesh(new THREE.TorusGeometry(2.2,.16,16,64),new THREE.MeshBasicMaterial({color:0x43c5ff}));portal.position.set(0,2.4,-9);worldGroup.add(portal);
-const core=new THREE.Mesh(new THREE.CircleGeometry(2.05,48),new THREE.MeshBasicMaterial({color:0x0a3b85,transparent:true,opacity:.58,side:THREE.DoubleSide}));core.position.set(0,2.4,-9.03);worldGroup.add(core);
-const worldBeacon=new THREE.PointLight(0x35adff,65,22,2);worldBeacon.position.set(0,4,-8);worldGroup.add(worldBeacon);
+function addBuilding(side,z,index){
+ const width=7+(index%3)*1.4,depth=6+(index%2)*2,height=8+(index*5%13),x=side*(12+(index%2)*2);
+ const colors=[0xb1a99e,0xd0c8bc,0x9aa6ae,0xc5b49f,0xa99e94];
+ const building=worldBox([width,height,depth],[x,height/2,z],worldMat(colors[index%colors.length],.82,.02));
+ worldBox([width+.18,.3,depth+.18],[x,height+.15,z],worldMat(0x565b60,.88,0));
+ const faceX=x-side*(width/2+.011);
+ const floors=Math.max(2,Math.floor(height/2.3));
+ for(let f=0;f<floors;f++)for(let w=-1;w<=1;w++){
+   const window=worldBox([.025,1.05,1.15],[faceX,1.5+f*2.15,z+w*(depth*.25)],new THREE.MeshPhysicalMaterial({color:0x8fc1d8,roughness:.22,metalness:.1,transparent:true,opacity:.84}));
+   window.rotation.y=0;
+ }
+ const door=worldBox([.035,2.2,1.25],[faceX,1.1,z-depth*.3],worldMat(0x4c3527,.58,.08));
+ return building;
+}
+for(let i=0;i<14;i++){const z=18-i*8.2;addBuilding(-1,z,i);addBuilding(1,z,i+2)}
+
+function addTree(x,z,scale=1){
+ const tree=new THREE.Group();tree.position.set(x,0,z);tree.scale.setScalar(scale);worldGroup.add(tree);
+ const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.16,.24,2.25,10),worldMat(0x76513a,.98));trunk.position.y=1.12;trunk.castShadow=true;tree.add(trunk);
+ for(const p of [[0,2.75,0],[-.45,2.55,.15],[.42,2.62,.05],[0,3.2,.05]]){const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(.72,2),worldMat(0x3f743d,.95));crown.position.set(...p);crown.castShadow=true;tree.add(crown)}
+}
+function addLamp(x,z){
+ const pole=new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,3.6,10),worldMat(0x30343a,.4,.65));pole.position.set(x,1.8,z);pole.castShadow=true;worldGroup.add(pole);
+ const head=new THREE.Mesh(new THREE.BoxGeometry(.6,.12,.22),worldMat(0x24282d,.35,.65));head.position.set(x+(x<0?.25:-.25),3.55,z);worldGroup.add(head);
+}
+for(let z=20;z>-75;z-=10){addTree(-8.2,z,.85);addTree(8.2,z,.85);addLamp(-5.45,z-2);addLamp(5.45,z+3)}
+
+// Parked vehicles establish a human scale without adding heavy external assets.
+function addCar(x,z,color){
+ const car=new THREE.Group();car.position.set(x,.18,z);worldGroup.add(car);
+ const body=new THREE.Mesh(new THREE.BoxGeometry(1.75,.52,3.7),new THREE.MeshPhysicalMaterial({color,roughness:.28,metalness:.55,clearcoat:.75}));body.position.y=.45;body.castShadow=true;car.add(body);
+ const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.48,.62,1.9),new THREE.MeshPhysicalMaterial({color:0x94afbe,roughness:.15,metalness:.15,transparent:true,opacity:.86}));cabin.position.set(0,.98,-.15);car.add(cabin);
+ for(const sx of [-1,1])for(const sz of [-1,1]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.18,18),worldMat(0x151515,.9));wheel.rotation.z=Math.PI/2;wheel.position.set(sx*.9,.34,sz*1.15);car.add(wheel)}
+}
+addCar(-4,9,0x9b1c20);addCar(4,-8,0xe1e4e8);addCar(-4,-28,0x244b7a);
+
+const portal=new THREE.Mesh(new THREE.TorusGeometry(1.65,.11,16,64),new THREE.MeshBasicMaterial({color:0x43c5ff}));portal.position.set(0,1.8,-18);worldGroup.add(portal);
+const core=new THREE.Mesh(new THREE.CircleGeometry(1.55,48),new THREE.MeshBasicMaterial({color:0x55baff,transparent:true,opacity:.25,side:THREE.DoubleSide}));core.position.set(0,1.8,-18.03);worldGroup.add(core);
+const worldBeacon=new THREE.PointLight(0x35adff,18,13,2);worldBeacon.position.set(0,2.5,-17);worldGroup.add(worldBeacon);
+const sunDisc=new THREE.Mesh(new THREE.SphereGeometry(3,24,16),new THREE.MeshBasicMaterial({color:0xfff2c4}));sunDisc.position.set(-36,35,-70);worldGroup.add(sunDisc);
 
 let modalOpen=true, currentTarget=null, autoMove=null, yaw=0, pitch=0, bodyType='male', outfit=0x1c75ff, worldMode=false, transitionTimer=null;
 player.visible=false;
@@ -206,11 +245,18 @@ function enterWorld(name){
 }
 function activateWorld(name){
  worldMode=true;roomObjects.forEach(o=>o.visible=false);worldGroup.visible=true;player.visible=false;player.position.set(0,0,5);player.rotation.y=Math.PI;yaw=0;pitch=0;
+ scene.background=new THREE.Color(0x91b9d5);scene.fog=new THREE.Fog(0xb9cedb,38,115);renderer.toneMappingExposure=1.18;
+ ambientLight.color.setHex(0xd8ebff);ambientLight.groundColor.setHex(0x65704c);ambientLight.intensity=2.25;
+ keyLight.color.setHex(0xffe4bd);keyLight.intensity=4.1;keyLight.position.set(-22,32,16);keyLight.shadow.mapSize.set(2048,2048);
+ blueLight.visible=false;pinkLight.visible=false;
  $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> EARTHVERSE · ARRIVAL DISTRICT';modalOpen=false;
  toast(`Welcome to Arrival District, ${name}. Explore with WASD.`);
 }
 function returnToRoom(){
  clearTimeout(transitionTimer);worldMode=false;worldGroup.visible=false;roomObjects.forEach(o=>o.visible=true);player.visible=false;player.position.set(0,0,3.2);player.rotation.y=Math.PI;yaw=0;pitch=0;
+ scene.background=new THREE.Color(0x050811);scene.fog=new THREE.FogExp2(0x060914,.035);renderer.toneMappingExposure=1.05;
+ ambientLight.color.setHex(0x5577aa);ambientLight.groundColor.setHex(0x08080d);ambientLight.intensity=1.15;
+ keyLight.color.setHex(0xb8d7ff);keyLight.intensity=2.2;keyLight.position.set(-3,8,4);blueLight.visible=true;pinkLight.visible=true;
  $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> GAMING ROOM · LOCAL REALITY';modalOpen=false;toast('Returned to your gaming room.');
 }
 
