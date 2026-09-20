@@ -72,7 +72,23 @@ function humanoid(){
 }
 const player=humanoid();
 
-let modalOpen=true, currentTarget=null, autoMove=null, yaw=0, bodyType='male', outfit=0x1c75ff;
+// First playable EARTHVERSE zone. It remains hidden while the player is in the room.
+const roomObjects=scene.children.filter(o=>o!==player&&!o.isLight);
+const worldGroup=new THREE.Group();worldGroup.visible=false;scene.add(worldGroup);
+const worldMat=(color,roughness=.6,metalness=.1)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
+const worldBox=(size,pos,material)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(...size),material);m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;worldGroup.add(m);return m};
+const worldGround=new THREE.Mesh(new THREE.PlaneGeometry(90,90),worldMat(0x101b28,.9));worldGround.rotation.x=-Math.PI/2;worldGround.receiveShadow=true;worldGroup.add(worldGround);
+const worldGrid=new THREE.GridHelper(90,45,0x157de0,0x193047);worldGrid.position.y=.02;worldGroup.add(worldGrid);
+for(let i=0;i<26;i++){
+ const side=i%2===0?-1:1;const z=-8-Math.floor(i/2)*6;const height=3+(i*7%10);
+ const building=worldBox([5+(i%3),height,4],[side*(7+(i%4)*2),height/2,z],worldMat(i%3===0?0x152d4b:0x182231,.5,.25));
+ const strip=new THREE.Mesh(new THREE.BoxGeometry(.08,height*.7,4.02),new THREE.MeshBasicMaterial({color:i%2?0x1677ff:0x55d6ff}));strip.position.set(building.position.x+(side<0?2.54:-2.54),height/2,z);worldGroup.add(strip);
+}
+const portal=new THREE.Mesh(new THREE.TorusGeometry(2.2,.16,16,64),new THREE.MeshBasicMaterial({color:0x43c5ff}));portal.position.set(0,2.4,-9);worldGroup.add(portal);
+const core=new THREE.Mesh(new THREE.CircleGeometry(2.05,48),new THREE.MeshBasicMaterial({color:0x0a3b85,transparent:true,opacity:.58,side:THREE.DoubleSide}));core.position.set(0,2.4,-9.03);worldGroup.add(core);
+const worldBeacon=new THREE.PointLight(0x35adff,65,22,2);worldBeacon.position.set(0,4,-8);worldGroup.add(worldBeacon);
+
+let modalOpen=true, currentTarget=null, autoMove=null, yaw=0, bodyType='male', outfit=0x1c75ff, worldMode=false, transitionTimer=null;
 const keys={};
 addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e'&&!modalOpen&&currentTarget) interact(currentTarget)});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
@@ -97,7 +113,7 @@ $$('[data-action]').forEach(b=>b.addEventListener('click',()=>{
  if(a==='explore'||a==='cancel') closeModals();
  if(a==='enterGuest') enterWorld('GUEST');
  if(a==='saveIdentity') saveIdentity();
- if(a==='returnRoom'){ $('#transition').classList.remove('active'); modalOpen=false; player.visible=true; }
+ if(a==='returnRoom') returnToRoom();
 }));
 
 $$('[data-tab]').forEach(t=>t.addEventListener('click',()=>{$$('[data-tab]').forEach(x=>x.classList.toggle('active',x===t));$$('.form').forEach(x=>x.classList.remove('active'));$('#'+t.dataset.tab+'Form').classList.add('active')}));
@@ -116,17 +132,30 @@ function saveIdentity(){
  if(old&&old.body!==bodyType&&now<old.bodyChangeAvailableAt){const left=Math.ceil((old.bodyChangeAvailableAt-now)/86400000);return toast(`Body change locked for ${left} more day(s).`)}
  localStorage.setItem('earthverse_profile',JSON.stringify({name,body:bodyType,outfit,bodyChangeAvailableAt:old?.body===bodyType?old.bodyChangeAvailableAt:now+7*86400000}));enterWorld(name);
 }
-function enterWorld(name){closeModals();player.visible=false;$('#transition').classList.add('active');$('.transition p').textContent=`WELCOME ${name.toUpperCase()} · ENTERING THE WORLD BEYOND REALITY`}
+function enterWorld(name){
+ closeModals();player.visible=false;$('#transition').classList.add('active');$('.transition p').textContent=`WELCOME ${name.toUpperCase()} · ENTERING THE WORLD BEYOND REALITY`;
+ clearTimeout(transitionTimer);transitionTimer=setTimeout(()=>activateWorld(name),3200);
+}
+function activateWorld(name){
+ worldMode=true;roomObjects.forEach(o=>o.visible=false);worldGroup.visible=true;player.visible=true;player.position.set(0,0,5);player.rotation.y=Math.PI;yaw=0;
+ $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> EARTHVERSE · ARRIVAL DISTRICT';modalOpen=false;
+ toast(`Welcome to Arrival District, ${name}. Explore with WASD.`);
+}
+function returnToRoom(){
+ clearTimeout(transitionTimer);worldMode=false;worldGroup.visible=false;roomObjects.forEach(o=>o.visible=true);player.visible=true;player.position.set(0,0,3.2);player.rotation.y=Math.PI;yaw=0;
+ $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> GAMING ROOM · LOCAL REALITY';modalOpen=false;toast('Returned to your gaming room.');
+}
 
 const clock=new THREE.Clock();
 function updatePlayer(dt){
  if(autoMove){const delta=autoMove.target.clone().sub(player.position);if(delta.length()<.12){const done=autoMove.done;autoMove=null;done();}else{delta.normalize();player.position.addScaledVector(delta,dt*2.1);player.rotation.y=Math.atan2(delta.x,delta.z);bob(dt,true)}return}
  if(modalOpen)return;
  const move=new THREE.Vector3((keys.d?1:0)-(keys.a?1:0),0,(keys.s?1:0)-(keys.w?1:0));
- if(move.length()){move.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),yaw);player.position.addScaledVector(move,dt*2.7);player.position.x=THREE.MathUtils.clamp(player.position.x,-5.2,5.2);player.position.z=THREE.MathUtils.clamp(player.position.z,-5.2,5.2);player.rotation.y=Math.atan2(move.x,move.z);bob(dt,true)}else bob(dt,false);
+ if(move.length()){move.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),yaw);player.position.addScaledVector(move,dt*(worldMode?4.2:2.7));player.position.x=THREE.MathUtils.clamp(player.position.x,worldMode?-42:-5.2,worldMode?42:5.2);player.position.z=THREE.MathUtils.clamp(player.position.z,worldMode?-42:-5.2,worldMode?42:5.2);player.rotation.y=Math.atan2(move.x,move.z);bob(dt,true)}else bob(dt,false);
+ if(worldMode){currentTarget=null;$('#interaction').classList.add('hidden');return}
  const targets=[['pc',new THREE.Vector3(2.8,0,-4.2),'Use Gaming PC'],['vr',new THREE.Vector3(-2.15,0,1.3),'Use VR Headset'],['wardrobe',new THREE.Vector3(-4.35,0,-1.2),'Open Wardrobe']];
  let nearest=null,min=1.75,label='';for(const [n,p,l] of targets){const d=player.position.distanceTo(p);if(d<min){min=d;nearest=n;label=l}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=label;
 }
 let step=0;function bob(dt,moving){step+=dt*(moving?9:3);player.position.y=moving?Math.abs(Math.sin(step))*.035:0}
-function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;const desired=player.position.clone().add(new THREE.Vector3(0,4.1,6.3).applyAxisAngle(new THREE.Vector3(0,1,0),yaw));camera.position.lerp(desired,1-Math.pow(.001,dt));camera.lookAt(player.position.x,1.25,player.position.z);renderer.render(scene,camera)}animate();
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const desired=player.position.clone().add(new THREE.Vector3(0,4.1,6.3).applyAxisAngle(new THREE.Vector3(0,1,0),yaw));camera.position.lerp(desired,1-Math.pow(.001,dt));camera.lookAt(player.position.x,1.25,player.position.z);renderer.render(scene,camera)}animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
