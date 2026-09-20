@@ -337,7 +337,8 @@ $$('[data-action]').forEach(b=>b.addEventListener('click',()=>{
  const a=b.dataset.action;
  if(a==='guest') walkTo([-2.15,0,2.15],()=>show('#guestConfirm'));
  if(a==='official') walkTo([2.8,0,-3.5],()=>show('#auth'));
- if(a==='explore'||a==='cancel') closeModals();
+ if(a==='explore'){closeModals();setTimeout(()=>toast('Room exploration enabled — click the screen, use WASD and press E to interact.'),250)}
+ if(a==='cancel') closeModals();
  if(a==='enterGuest') enterWorld('GUEST');
  if(a==='saveIdentity') saveIdentity();
  if(a==='returnRoom') returnToRoom();
