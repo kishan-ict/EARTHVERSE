@@ -62,12 +62,47 @@ box('wardrobeGlow',[1.9,2.95,.02],[-4.35,1.7,-1.16],new THREE.MeshBasicMaterial(
 
 function humanoid(){
  const g=new THREE.Group();g.name='player';
- const skin=mat(0xb97958,.7); const cloth=mat(0x1c75ff,.5); const dark=mat(0x10141d,.65);
- const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.75,5,10),cloth);torso.position.y=1.35;torso.castShadow=true;torso.name='shirt';g.add(torso);
- const head=new THREE.Mesh(new THREE.SphereGeometry(.31,20,16),skin);head.position.y=2.15;head.castShadow=true;g.add(head);
- const hair=new THREE.Mesh(new THREE.SphereGeometry(.32,16,8,0,Math.PI*2,0,Math.PI*.52),mat(0x16100d,.9));hair.position.y=2.25;g.add(hair);
- for(const x of [-.21,.21]){const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.12,.68,4,8),dark);leg.position.set(x,.5,0);leg.castShadow=true;g.add(leg)}
- for(const x of [-.53,.53]){const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.1,.62,4,8),skin);arm.position.set(x,1.38,0);arm.rotation.z=x>0?-.1:.1;arm.castShadow=true;g.add(arm)}
+ const skin=mat(0xb97858,.72);const skinSoft=mat(0xc48664,.78);const cloth=mat(0x1c75ff,.48);const dark=mat(0x111621,.68);const shoeMat=mat(0x080b11,.4,.25);const white=mat(0xf0f3f7,.5);const iris=mat(0x253f58,.3);const hairMat=mat(0x15100e,.9);
+ const part=(geo,material,name,pos,scale=[1,1,1])=>{const m=new THREE.Mesh(geo,material);m.name=name;m.position.set(...pos);m.scale.set(...scale);m.castShadow=true;m.receiveShadow=true;g.add(m);return m};
+
+ // Anatomical torso: broad shoulders taper naturally into waist and hips.
+ const chest=part(new THREE.CapsuleGeometry(.35,.48,8,16),cloth,'shirt',[0,1.48,0],[1.18,1,.72]);
+ const waist=part(new THREE.CapsuleGeometry(.27,.26,6,14),cloth,'waist',[0,1.13,0],[1,.9,.72]);
+ const hips=part(new THREE.CapsuleGeometry(.3,.18,6,14),dark,'hips',[0,.94,0],[1.08,.8,.78]);
+ part(new THREE.CylinderGeometry(.14,.16,.16,16),skin,'neck',[0,1.94,0],[1,1,.9]);
+
+ // Head with a slightly longer human skull, jaw, ears and visible facial features.
+ const head=part(new THREE.SphereGeometry(.29,28,22),skinSoft,'head',[0,2.24,0],[.88,1.08,.9]);
+ part(new THREE.SphereGeometry(.055,12,10),skinSoft,'leftEar',[-.27,2.24,0],[.55,1,.45]);
+ part(new THREE.SphereGeometry(.055,12,10),skinSoft,'rightEar',[.27,2.24,0],[.55,1,.45]);
+ part(new THREE.ConeGeometry(.045,.13,10),skinSoft,'nose',[0,2.24,-.27],[1,1,1]).rotation.x=-Math.PI/2;
+ for(const x of [-.095,.095]){
+   part(new THREE.SphereGeometry(.034,12,8),white,'eyeWhite',[x,2.31,-.255],[1.15,.65,.4]);
+   part(new THREE.SphereGeometry(.015,10,8),iris,'eye',[x,2.31,-.274],[1,.8,.45]);
+ }
+ const mouth=part(new THREE.BoxGeometry(.1,.012,.012),mat(0x733f3d,.7),'mouth',[0,2.12,-.27]);mouth.rotation.z=.02;
+ const hair=part(new THREE.SphereGeometry(.3,22,14,0,Math.PI*2,0,Math.PI*.58),hairMat,'hair',[0,2.35,.008],[.9,1,.92]);
+
+ // Arms are built from separate upper arms, elbow joints, forearms and hands.
+ const limbs={arms:[],legs:[]};
+ for(const side of [-1,1]){
+   part(new THREE.SphereGeometry(.19,16,12),cloth,side<0?'leftShoulder':'rightShoulder',[side*.43,1.67,0],[1,.9,.78]);
+   const upper=part(new THREE.CapsuleGeometry(.095,.36,6,12),cloth,side<0?'leftUpperArm':'rightUpperArm',[side*.5,1.43,0],[1,1,.85]);upper.rotation.z=side*.08;
+   part(new THREE.SphereGeometry(.105,14,10),skin,side<0?'leftElbow':'rightElbow',[side*.53,1.17,0],[1,.9,.9]);
+   const fore=part(new THREE.CapsuleGeometry(.085,.32,6,12),skin,side<0?'leftForearm':'rightForearm',[side*.54,.94,0],[1,1,.82]);fore.rotation.z=-side*.025;
+   part(new THREE.SphereGeometry(.105,16,12),skinSoft,side<0?'leftHand':'rightHand',[side*.54,.68,-.01],[.72,1.12,.52]);
+   limbs.arms.push({upper,fore,side});
+ }
+
+ // Separate thighs, knees, calves and forward-facing feet give a human silhouette.
+ for(const side of [-1,1]){
+   const thigh=part(new THREE.CapsuleGeometry(.145,.38,7,14),dark,side<0?'leftThigh':'rightThigh',[side*.19,.66,0],[1.05,1,.9]);
+   part(new THREE.SphereGeometry(.135,14,10),dark,side<0?'leftKnee':'rightKnee',[side*.19,.39,-.015],[1,.88,.9]);
+   const calf=part(new THREE.CapsuleGeometry(.115,.31,6,12),dark,side<0?'leftCalf':'rightCalf',[side*.19,.18,0],[1,1,.86]);
+   part(new THREE.BoxGeometry(.25,.13,.42),shoeMat,side<0?'leftShoe':'rightShoe',[side*.19,.07,-.1],[1,1,1]);
+   limbs.legs.push({thigh,calf,side});
+ }
+ g.userData.limbs=limbs;g.userData.baseY={arms:limbs.arms.map(a=>a.upper.rotation.x),legs:limbs.legs.map(l=>l.thigh.rotation.x)};
  g.position.set(0,0,3.2);g.rotation.y=Math.PI;scene.add(g);return g;
 }
 const player=humanoid();
@@ -156,6 +191,11 @@ function updatePlayer(dt){
  const targets=[['pc',new THREE.Vector3(2.8,0,-4.2),'Use Gaming PC'],['vr',new THREE.Vector3(-2.15,0,1.3),'Use VR Headset'],['wardrobe',new THREE.Vector3(-4.35,0,-1.2),'Open Wardrobe']];
  let nearest=null,min=1.75,label='';for(const [n,p,l] of targets){const d=player.position.distanceTo(p);if(d<min){min=d;nearest=n;label=l}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=label;
 }
-let step=0;function bob(dt,moving){step+=dt*(moving?9:3);player.position.y=moving?Math.abs(Math.sin(step))*.035:0}
+let step=0;function bob(dt,moving){
+ step+=dt*(moving?9:3);player.position.y=moving?Math.abs(Math.sin(step))*.026:0;
+ const limbs=player.userData.limbs;if(!limbs)return;const swing=moving?Math.sin(step)*.52:0;
+ limbs.arms.forEach((a,i)=>{a.upper.rotation.x=THREE.MathUtils.lerp(a.upper.rotation.x,(i?1:-1)*swing,.18);a.fore.rotation.x=THREE.MathUtils.lerp(a.fore.rotation.x,Math.max(0,(i?-1:1)*swing)*.32,.16)});
+ limbs.legs.forEach((l,i)=>{l.thigh.rotation.x=THREE.MathUtils.lerp(l.thigh.rotation.x,(i?-1:1)*swing,.2);l.calf.rotation.x=THREE.MathUtils.lerp(l.calf.rotation.x,Math.max(0,(i?1:-1)*swing)*.28,.18)});
+}
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const desired=player.position.clone().add(new THREE.Vector3(0,4.1,6.3).applyAxisAngle(new THREE.Vector3(0,1,0),yaw));camera.position.lerp(desired,1-Math.pow(.001,dt));camera.lookAt(player.position.x,1.25,player.position.z);renderer.render(scene,camera)}animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
