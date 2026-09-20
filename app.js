@@ -155,11 +155,12 @@ const portal=new THREE.Mesh(new THREE.TorusGeometry(2.2,.16,16,64),new THREE.Mes
 const core=new THREE.Mesh(new THREE.CircleGeometry(2.05,48),new THREE.MeshBasicMaterial({color:0x0a3b85,transparent:true,opacity:.58,side:THREE.DoubleSide}));core.position.set(0,2.4,-9.03);worldGroup.add(core);
 const worldBeacon=new THREE.PointLight(0x35adff,65,22,2);worldBeacon.position.set(0,4,-8);worldGroup.add(worldBeacon);
 
-let modalOpen=true, currentTarget=null, autoMove=null, yaw=0, bodyType='male', outfit=0x1c75ff, worldMode=false, transitionTimer=null;
+let modalOpen=true, currentTarget=null, autoMove=null, yaw=0, pitch=0, bodyType='male', outfit=0x1c75ff, worldMode=false, transitionTimer=null;
+player.visible=false;
 const keys={};
 addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e'&&!modalOpen&&currentTarget) interact(currentTarget)});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-addEventListener('mousemove',e=>{if(!modalOpen&&document.pointerLockElement===renderer.domElement) yaw-=e.movementX*.0025});
+addEventListener('mousemove',e=>{if(!modalOpen&&document.pointerLockElement===renderer.domElement){yaw-=e.movementX*.0025;pitch-=e.movementY*.0022;pitch=THREE.MathUtils.clamp(pitch,-1.25,1.25)}});
 renderer.domElement.addEventListener('click',()=>{if(!modalOpen) renderer.domElement.requestPointerLock?.()});
 
 const show=(id)=>{modalOpen=true;document.exitPointerLock?.();$$('.modal-shell').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')};
@@ -204,18 +205,18 @@ function enterWorld(name){
  clearTimeout(transitionTimer);transitionTimer=setTimeout(()=>activateWorld(name),3200);
 }
 function activateWorld(name){
- worldMode=true;roomObjects.forEach(o=>o.visible=false);worldGroup.visible=true;player.visible=true;player.position.set(0,0,5);player.rotation.y=Math.PI;yaw=0;
+ worldMode=true;roomObjects.forEach(o=>o.visible=false);worldGroup.visible=true;player.visible=false;player.position.set(0,0,5);player.rotation.y=Math.PI;yaw=0;pitch=0;
  $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> EARTHVERSE · ARRIVAL DISTRICT';modalOpen=false;
  toast(`Welcome to Arrival District, ${name}. Explore with WASD.`);
 }
 function returnToRoom(){
- clearTimeout(transitionTimer);worldMode=false;worldGroup.visible=false;roomObjects.forEach(o=>o.visible=true);player.visible=true;player.position.set(0,0,3.2);player.rotation.y=Math.PI;yaw=0;
+ clearTimeout(transitionTimer);worldMode=false;worldGroup.visible=false;roomObjects.forEach(o=>o.visible=true);player.visible=false;player.position.set(0,0,3.2);player.rotation.y=Math.PI;yaw=0;pitch=0;
  $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> GAMING ROOM · LOCAL REALITY';modalOpen=false;toast('Returned to your gaming room.');
 }
 
 const clock=new THREE.Clock();
 function updatePlayer(dt){
- if(autoMove){const delta=autoMove.target.clone().sub(player.position);if(delta.length()<.12){const done=autoMove.done;autoMove=null;done();}else{delta.normalize();player.position.addScaledVector(delta,dt*2.1);player.rotation.y=Math.atan2(delta.x,delta.z);bob(dt,true)}return}
+ if(autoMove){const delta=autoMove.target.clone().sub(player.position);if(delta.length()<.12){const done=autoMove.done;autoMove=null;done();}else{delta.normalize();player.position.addScaledVector(delta,dt*2.1);player.rotation.y=Math.atan2(delta.x,delta.z);yaw=Math.atan2(-delta.x,-delta.z);pitch=THREE.MathUtils.lerp(pitch,0,dt*4);bob(dt,true)}return}
  if(modalOpen)return;
  const move=new THREE.Vector3((keys.d?1:0)-(keys.a?1:0),0,(keys.s?1:0)-(keys.w?1:0));
  if(move.length()){move.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),yaw);player.position.addScaledVector(move,dt*(worldMode?4.2:2.7));player.position.x=THREE.MathUtils.clamp(player.position.x,worldMode?-42:-5.2,worldMode?42:5.2);player.position.z=THREE.MathUtils.clamp(player.position.z,worldMode?-42:-5.2,worldMode?42:5.2);player.rotation.y=Math.atan2(move.x,move.z);bob(dt,true)}else bob(dt,false);
@@ -229,5 +230,5 @@ let step=0;function bob(dt,moving){
  limbs.arms.forEach((a,i)=>{a.upper.rotation.x=THREE.MathUtils.lerp(a.upper.rotation.x,(i?1:-1)*swing,.18);a.fore.rotation.x=THREE.MathUtils.lerp(a.fore.rotation.x,Math.max(0,(i?-1:1)*swing)*.32,.16)});
  limbs.legs.forEach((l,i)=>{l.thigh.rotation.x=THREE.MathUtils.lerp(l.thigh.rotation.x,(i?-1:1)*swing,.2);l.calf.rotation.x=THREE.MathUtils.lerp(l.calf.rotation.x,Math.max(0,(i?1:-1)*swing)*.28,.18)});
 }
-function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const desired=player.position.clone().add(new THREE.Vector3(0,4.1,6.3).applyAxisAngle(new THREE.Vector3(0,1,0),yaw));camera.position.lerp(desired,1-Math.pow(.001,dt));camera.lookAt(player.position.x,1.25,player.position.z);renderer.render(scene,camera)}animate();
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const eyeHeight=2.08;const desired=player.position.clone().add(new THREE.Vector3(0,eyeHeight,0));camera.position.lerp(desired,1-Math.pow(.00001,dt));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.rotation.z=0;renderer.render(scene,camera)}animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
