@@ -213,13 +213,13 @@ for(const z of [-13,-23,-45,-55]){addTrafficLight(-5.35,z);addTrafficLight(5.35,
 for(const roadX of [-36,36])for(const z of [22,-18,-50,-82]){addTrafficLight(roadX-5.2,z-4.1);addTrafficLight(roadX+5.2,z+4.1,Math.PI)}
 
 // Parked vehicles establish a human scale without adding heavy external assets.
-const movingCars=[];
+const movingCars=[],vehicles=[];
 function addCar(x,z,color,moving=false,direction=-1){
  const car=new THREE.Group();car.position.set(x,.18,z);worldGroup.add(car);
  const body=new THREE.Mesh(new THREE.BoxGeometry(1.75,.52,3.7),new THREE.MeshPhysicalMaterial({color,roughness:.28,metalness:.55,clearcoat:.75}));body.position.y=.45;body.castShadow=true;car.add(body);
  const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.48,.62,1.9),new THREE.MeshPhysicalMaterial({color:0x94afbe,roughness:.15,metalness:.15,transparent:true,opacity:.86}));cabin.position.set(0,.98,-.15);car.add(cabin);
  for(const sx of [-1,1])for(const sz of [-1,1]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.18,18),worldMat(0x151515,.9));wheel.rotation.z=Math.PI/2;wheel.position.set(sx*.9,.34,sz*1.15);car.add(wheel)}
- car.userData={moving,direction,speed:3+Math.random()*2};if(moving)movingCars.push(car);return car;
+ car.userData={moving,direction,speed:3+Math.random()*2,isVehicle:true,driveSpeed:0};car.rotation.y=direction>0?Math.PI:0;vehicles.push(car);if(moving)movingCars.push(car);return car;
 }
 addCar(-4,9,0x9b1c20);addCar(4,-8,0xe1e4e8);addCar(-4,-28,0x244b7a);
 addCar(-2.1,20,0x324f82,true,-1);addCar(2.1,-62,0xd1a02d,true,1);addCar(-2.1,-8,0xeeeeee,true,-1);addCar(2.1,-38,0x317052,true,1);
@@ -255,7 +255,7 @@ const core=new THREE.Mesh(new THREE.CircleGeometry(1.55,48),new THREE.MeshBasicM
 const worldBeacon=new THREE.PointLight(0x35adff,18,13,2);worldBeacon.position.set(0,2.5,-17);worldGroup.add(worldBeacon);
 const sunDisc=new THREE.Mesh(new THREE.SphereGeometry(3,24,16),new THREE.MeshBasicMaterial({color:0xfff2c4}));sunDisc.position.set(-36,35,-70);worldGroup.add(sunDisc);
 
-let modalOpen=true, currentTarget=null, autoMove=null, yaw=0, pitch=0, bodyType='male', outfit=0x1c75ff, worldMode=false, transitionTimer=null;
+let modalOpen=true, currentTarget=null, autoMove=null, yaw=0, pitch=0, bodyType='male', outfit=0x1c75ff, worldMode=false, transitionTimer=null,currentVehicle=null;
 player.visible=false;
 const keys={};
 scene.add(camera);
@@ -263,11 +263,11 @@ const weapon=new THREE.Group();weapon.visible=false;camera.add(weapon);weapon.po
 const gunBody=new THREE.Mesh(new THREE.BoxGeometry(.18,.22,.7),worldMat(0x232a33,.3,.7));weapon.add(gunBody);const gunBarrel=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.48,12),worldMat(0x11151b,.22,.8));gunBarrel.rotation.x=Math.PI/2;gunBarrel.position.set(0,.03,-.5);weapon.add(gunBarrel);
 const muzzle=new THREE.PointLight(0xffb13b,0,3,2);muzzle.position.set(0,.03,-.78);weapon.add(muzzle);
 const raycaster=new THREE.Raycaster();let lastShot=0;
-addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e'&&!modalOpen&&currentTarget) interact(currentTarget);if(e.key.toLowerCase()==='q'&&worldMode&&!modalOpen)forceWave()});
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e'&&!modalOpen&&currentTarget) interact(currentTarget);if(e.key.toLowerCase()==='q'&&worldMode&&!modalOpen&&!currentVehicle)forceWave()});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 addEventListener('mousemove',e=>{if(!modalOpen&&document.pointerLockElement===renderer.domElement){yaw-=e.movementX*.0025;pitch-=e.movementY*.0022;pitch=THREE.MathUtils.clamp(pitch,-1.25,1.25)}});
 renderer.domElement.addEventListener('click',()=>{if(!modalOpen) renderer.domElement.requestPointerLock?.()});
-addEventListener('mousedown',e=>{if(e.button===0&&worldMode&&!modalOpen&&document.pointerLockElement===renderer.domElement)shoot()});
+addEventListener('mousedown',e=>{if(e.button===0&&worldMode&&!modalOpen&&!currentVehicle&&document.pointerLockElement===renderer.domElement)shoot()});
 
 function gunSound(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),gain=a.createGain();o.type='square';o.frequency.setValueAtTime(125,a.currentTime);o.frequency.exponentialRampToValueAtTime(45,a.currentTime+.09);gain.gain.setValueAtTime(.12,a.currentTime);gain.gain.exponentialRampToValueAtTime(.001,a.currentTime+.12);o.connect(gain).connect(a.destination);o.start();o.stop(a.currentTime+.12)}catch{}}
 function bloodEffect(position){for(let i=0;i<10;i++){const drop=new THREE.Mesh(new THREE.SphereGeometry(.025+Math.random()*.025,6,5),new THREE.MeshBasicMaterial({color:0xa70d12}));drop.position.copy(position);drop.userData.velocity=new THREE.Vector3((Math.random()-.5)*2,Math.random()*1.7,(Math.random()-.5)*2);drop.userData.life=1;worldGroup.add(drop);effects.push(drop)}}
@@ -281,9 +281,18 @@ const closeModals=()=>{$$('.modal-shell').forEach(x=>x.classList.remove('active'
 const walkTo=(target,done)=>{closeModals();autoMove={target:new THREE.Vector3(...target),done};};
 
 function interact(target){
+ if(target?.userData?.isVehicle)return currentVehicle?exitVehicle():enterVehicle(target);
  if(target==='pc') walkTo([2.8,0,-3.5],()=>show('#auth'));
  if(target==='vr') walkTo([-2.15,0,2.15],()=>show('#guestConfirm'));
  if(target==='wardrobe'){ const profile=JSON.parse(localStorage.getItem('earthverse_profile')||'null'); if(profile) show('#customizer'); else toast('Create an Official Gamer identity first.'); }
+}
+function enterVehicle(car){
+ if(car.userData.moving)return toast('Wait for the vehicle to stop.');currentVehicle=car;car.userData.driveSpeed=0;player.position.copy(car.position);yaw=car.rotation.y;pitch=0;
+ weapon.visible=false;$('#combatHud').classList.add('hidden');$('#vehicleHud').classList.remove('hidden');toast('Vehicle started. Use WASD to drive and E to exit.');
+}
+function exitVehicle(){
+ if(!currentVehicle)return;const side=new THREE.Vector3(2.2,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),currentVehicle.rotation.y);player.position.copy(currentVehicle.position).add(side);currentVehicle.userData.driveSpeed=0;currentVehicle=null;
+ weapon.visible=true;$('#combatHud').classList.remove('hidden');$('#vehicleHud').classList.add('hidden');$('#speedValue').textContent='0';toast('Exited vehicle.');
 }
 function toast(message){const t=$('#toast');t.textContent=message;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),2800)}
 
@@ -328,21 +337,28 @@ function activateWorld(name){
  toast(`Welcome to Arrival District, ${name}. Explore with WASD.`);
 }
 function returnToRoom(){
- clearTimeout(transitionTimer);worldMode=false;worldGroup.visible=false;roomObjects.forEach(o=>o.visible=true);player.visible=false;player.position.set(0,0,3.2);player.rotation.y=Math.PI;yaw=0;pitch=0;
+ clearTimeout(transitionTimer);if(currentVehicle){currentVehicle.userData.driveSpeed=0;currentVehicle=null}worldMode=false;worldGroup.visible=false;roomObjects.forEach(o=>o.visible=true);player.visible=false;player.position.set(0,0,3.2);player.rotation.y=Math.PI;yaw=0;pitch=0;
  scene.background=new THREE.Color(0x050811);scene.fog=new THREE.FogExp2(0x060914,.035);renderer.toneMappingExposure=1.05;
  ambientLight.color.setHex(0x5577aa);ambientLight.groundColor.setHex(0x08080d);ambientLight.intensity=1.15;
  keyLight.color.setHex(0xb8d7ff);keyLight.intensity=2.2;keyLight.position.set(-3,8,4);blueLight.visible=true;pinkLight.visible=true;
- weapon.visible=false;$('#combatHud').classList.add('hidden');
+ weapon.visible=false;$('#combatHud').classList.add('hidden');$('#vehicleHud').classList.add('hidden');
  $('#transition').classList.remove('active');$('.location').innerHTML='<span></span> GAMING ROOM · LOCAL REALITY';modalOpen=false;toast('Returned to your gaming room.');
 }
 
 const clock=new THREE.Clock();
 function updatePlayer(dt){
+ if(currentVehicle){
+   const u=currentVehicle.userData;const throttle=(keys.w?1:0)-(keys.s?1:0);u.driveSpeed+=throttle*12*dt;u.driveSpeed*=Math.pow(.55,dt);u.driveSpeed=THREE.MathUtils.clamp(u.driveSpeed,-5,16);
+   const steering=(keys.a?1:0)-(keys.d?1:0);if(Math.abs(u.driveSpeed)>.15)currentVehicle.rotation.y+=steering*dt*1.35*Math.sign(u.driveSpeed);
+   const forward=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),currentVehicle.rotation.y);currentVehicle.position.addScaledVector(forward,u.driveSpeed*dt);
+   currentVehicle.position.x=THREE.MathUtils.clamp(currentVehicle.position.x,-98,98);currentVehicle.position.z=THREE.MathUtils.clamp(currentVehicle.position.z,-125,62);player.position.copy(currentVehicle.position);yaw=currentVehicle.rotation.y;pitch=THREE.MathUtils.clamp(pitch,-.55,.75);
+   currentTarget=currentVehicle;$('#interaction').classList.remove('hidden');$('#interactionText').textContent='Exit Vehicle';$('#speedValue').textContent=Math.round(Math.abs(u.driveSpeed)*8);return;
+ }
  if(autoMove){const delta=autoMove.target.clone().sub(player.position);if(delta.length()<.12){const done=autoMove.done;autoMove=null;done();}else{delta.normalize();player.position.addScaledVector(delta,dt*2.1);player.rotation.y=Math.atan2(delta.x,delta.z);yaw=Math.atan2(-delta.x,-delta.z);pitch=THREE.MathUtils.lerp(pitch,0,dt*4);bob(dt,true)}return}
  if(modalOpen)return;
  const move=new THREE.Vector3((keys.d?1:0)-(keys.a?1:0),0,(keys.s?1:0)-(keys.w?1:0));
  if(move.length()){move.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),yaw);player.position.addScaledVector(move,dt*(worldMode?5.2:2.7));player.position.x=THREE.MathUtils.clamp(player.position.x,worldMode?-98:-5.2,worldMode?98:5.2);player.position.z=THREE.MathUtils.clamp(player.position.z,worldMode?-125:-5.2,worldMode?62:5.2);player.rotation.y=Math.atan2(move.x,move.z);bob(dt,true)}else bob(dt,false);
- if(worldMode){currentTarget=null;$('#interaction').classList.add('hidden');return}
+ if(worldMode){let nearest=null,min=3;for(const car of vehicles){if(car.userData.moving)continue;const d=player.position.distanceTo(car.position);if(d<min){min=d;nearest=car}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=nearest?'Enter Vehicle':'';return}
  const targets=[['pc',new THREE.Vector3(2.8,0,-4.2),'Use Gaming PC'],['vr',new THREE.Vector3(-2.15,0,1.3),'Use VR Headset'],['wardrobe',new THREE.Vector3(-4.35,0,-1.2),'Open Wardrobe']];
  let nearest=null,min=1.75,label='';for(const [n,p,l] of targets){const d=player.position.distanceTo(p);if(d<min){min=d;nearest=n;label=l}}currentTarget=nearest;$('#interaction').classList.toggle('hidden',!nearest);$('#interactionText').textContent=label;
 }
@@ -365,5 +381,5 @@ let step=0;function bob(dt,moving){
  limbs.arms.forEach((a,i)=>{a.upper.rotation.x=THREE.MathUtils.lerp(a.upper.rotation.x,(i?1:-1)*swing,.18);a.fore.rotation.x=THREE.MathUtils.lerp(a.fore.rotation.x,Math.max(0,(i?-1:1)*swing)*.32,.16)});
  limbs.legs.forEach((l,i)=>{l.thigh.rotation.x=THREE.MathUtils.lerp(l.thigh.rotation.x,(i?-1:1)*swing,.2);l.calf.rotation.x=THREE.MathUtils.lerp(l.calf.rotation.x,Math.max(0,(i?1:-1)*swing)*.28,.18)});
 }
-function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);updateWorldLife(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const eyeHeight=2.08;const desired=player.position.clone().add(new THREE.Vector3(0,eyeHeight,0));camera.position.lerp(desired,1-Math.pow(.00001,dt));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.rotation.z=0;renderer.render(scene,camera)}animate();
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);updatePlayer(dt);updateWorldLife(dt);headsetGroup.rotation.y=Math.sin(performance.now()*.001)*.06;portal.rotation.z+=dt*.25;const desired=currentVehicle?currentVehicle.position.clone().add(new THREE.Vector3(.38,1.18,-.08).applyAxisAngle(new THREE.Vector3(0,1,0),currentVehicle.rotation.y)):player.position.clone().add(new THREE.Vector3(0,2.08,0));camera.position.lerp(desired,1-Math.pow(.00001,dt));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.rotation.z=0;renderer.render(scene,camera)}animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
